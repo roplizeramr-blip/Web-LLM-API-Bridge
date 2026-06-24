@@ -13,6 +13,9 @@ from app.provider_store import ProviderStore
 from app.settings import BROWSER_DIR, SESSIONS_DIR, ensure_data_dirs, settings
 
 
+CLOSED_BROWSER_ERROR = "Target page, context or browser has been closed"
+
+
 @dataclass
 class ProviderHandle:
     config: ProviderConfig
@@ -37,8 +40,9 @@ class BrowserEngine:
 
     async def stop(self) -> None:
         for handle in list(self._handles.values()):
-            await self._save_session(handle)
-            await handle.context.close()
+            if self._is_handle_alive(handle):
+                await self._save_session(handle)
+            await self._close_context(handle.context)
         self._handles.clear()
         if self._playwright is not None:
             await self._playwright.stop()
@@ -53,16 +57,16 @@ class BrowserEngine:
 
     async def login(self, provider_name: str) -> ProviderRuntime:
         handle = await self._get_or_create(provider_name)
-        try:
+        async with handle.lock:
             handle.status = ProviderStatus.disconnected
-            await handle.page.goto(str(handle.config.url), wait_until="domcontentloaded")
-            await handle.page.bring_to_front()
-            handle.status = ProviderStatus.connected
-            handle.error = None
-        except Exception as exc:  # noqa: BLE001 - surfaced in dashboard and API.
-            handle.status = ProviderStatus.error
-            handle.error = str(exc)
-        return self._runtime(handle.config, handle)
+            try:
+                handle = await self._goto_provider(handle)
+                handle.status = ProviderStatus.connected
+                handle.error = None
+            except Exception as exc:  # noqa: BLE001 - surfaced in dashboard and API.
+                handle.status = ProviderStatus.error
+                handle.error = str(exc)
+            return self._runtime(handle.config, handle)
 
     async def save_session(self, provider_name: str) -> ProviderRuntime:
         handle = await self._get_or_create(provider_name)
@@ -93,6 +97,7 @@ class BrowserEngine:
                 else:
                     async for chunk in self._dom_stream(handle, prompt):
                         yield chunk
+                handle = self._handles.get(provider_name, handle)
                 handle.status = ProviderStatus.connected
                 await self._save_session(handle)
             except Exception as exc:  # noqa: BLE001 - surfaced to caller.
@@ -102,36 +107,92 @@ class BrowserEngine:
 
     async def _get_or_create(self, provider_name: str) -> ProviderHandle:
         async with self._engine_lock:
-            if provider_name in self._handles:
-                return self._handles[provider_name]
+            handle = self._handles.get(provider_name)
+            if handle is not None:
+                if self._is_handle_alive(handle):
+                    return handle
+                await self._discard_handle(provider_name, handle)
             await self.start()
-            config = self.store.load(provider_name)
-            assert self._playwright is not None
-            user_data_dir = self._user_data_dir(config)
-            context = await self._playwright.chromium.launch_persistent_context(executable_path="/usr/bin/chromium-browser", 
-                user_data_dir=str(user_data_dir),
-                headless=settings.headless,
-                viewport={"width": 1360, "height": 900},
-                args=["--disable-blink-features=AutomationControlled"],
-            )
-            page = context.pages[0] if context.pages else await context.new_page()
-            handle = ProviderHandle(
-                config=config,
-                context=context,
-                page=page,
-                lock=asyncio.Lock(),
-            )
-            self._handles[provider_name] = handle
+            return await self._create_handle(provider_name)
+
+    async def _create_handle(self, provider_name: str) -> ProviderHandle:
+        config = self.store.load(provider_name)
+        assert self._playwright is not None
+        user_data_dir = self._user_data_dir(config)
+        context = await self._playwright.chromium.launch_persistent_context(
+            executable_path="/usr/bin/chromium-browser",
+            user_data_dir=str(user_data_dir),
+            headless=settings.headless,
+            viewport={"width": 1360, "height": 900},
+            args=["--disable-blink-features=AutomationControlled"],
+        )
+        page = context.pages[0] if context.pages else await context.new_page()
+        handle = ProviderHandle(
+            config=config,
+            context=context,
+            page=page,
+            lock=asyncio.Lock(),
+        )
+        self._handles[provider_name] = handle
+        return handle
+
+    async def _recreate_handle(self, provider_name: str, handle: ProviderHandle) -> ProviderHandle:
+        async with self._engine_lock:
+            current = self._handles.get(provider_name)
+            if current is not None and current is not handle and self._is_handle_alive(current):
+                return current
+            if current is not None:
+                await self._discard_handle(provider_name, current)
+            await self.start()
+            return await self._create_handle(provider_name)
+
+    def _is_handle_alive(self, handle: ProviderHandle) -> bool:
+        try:
+            if handle.page.is_closed():
+                return False
+            return handle.page in handle.context.pages
+        except Error as exc:
+            if self._is_closed_error(exc):
+                return False
+            raise
+
+    async def _discard_handle(self, provider_name: str, handle: ProviderHandle) -> None:
+        self._handles.pop(provider_name, None)
+        await self._close_context(handle.context)
+
+    async def _close_context(self, context: BrowserContext) -> None:
+        try:
+            await context.close()
+        except Error as exc:
+            if not self._is_closed_error(exc):
+                raise
+
+    async def _goto_provider(self, handle: ProviderHandle) -> ProviderHandle:
+        try:
+            await handle.page.goto(str(handle.config.url), wait_until="domcontentloaded")
+            await handle.page.bring_to_front()
             return handle
+        except Error as exc:
+            if not self._is_closed_error(exc):
+                raise
+            handle = await self._recreate_handle(handle.config.name, handle)
+            await handle.page.goto(str(handle.config.url), wait_until="domcontentloaded")
+            await handle.page.bring_to_front()
+            return handle
+
+    @staticmethod
+    def _is_closed_error(exc: Error) -> bool:
+        return CLOSED_BROWSER_ERROR in str(exc)
 
     async def _dom_stream(self, handle: ProviderHandle, prompt: str) -> AsyncIterator[str]:
         page = handle.page
         if page.is_closed():
-            handle.page = await handle.context.new_page()
+            handle = await self._recreate_handle(handle.config.name, handle)
             page = handle.page
 
         if not page.url or page.url == "about:blank":
-            await page.goto(str(handle.config.url), wait_until="domcontentloaded")
+            handle = await self._goto_provider(handle)
+            page = handle.page
 
         previous_count = await self._response_count(page, handle.config)
         await self._fill_prompt(page, handle.config, prompt)
