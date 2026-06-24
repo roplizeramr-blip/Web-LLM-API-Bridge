@@ -403,6 +403,12 @@
       background: #0d131c;
     }
 
+    .chat-actions {
+      display: flex;
+      gap: 8px;
+      align-items: stretch;
+    }
+
     .help-panel {
       display: grid;
       gap: 18px;
@@ -657,6 +663,7 @@
       .chat-status { text-align: left; }
       .chat-bubble { max-width: 92%; }
       .chat-composer { grid-template-columns: 1fr; }
+      .chat-actions button { flex: 1; }
       .vnc-frame-wrap { height: 54vh; min-height: 300px; }
     }
   </style>
@@ -720,7 +727,10 @@
           <div class="chat-history" id="chatHistory" aria-live="polite"></div>
           <form class="chat-composer" id="chatForm">
             <textarea id="chatInput" rows="2" placeholder="Message the selected provider"></textarea>
-            <button class="primary" id="chatSend" type="submit">Send</button>
+            <div class="chat-actions">
+              <button class="primary" id="chatSend" type="submit">Send</button>
+              <button class="ghost" id="chatStop" type="button" disabled>Stop</button>
+            </div>
           </form>
         </div>
       </section>
@@ -882,6 +892,7 @@
     const chatForm = document.querySelector("#chatForm");
     const chatInput = document.querySelector("#chatInput");
     const chatSend = document.querySelector("#chatSend");
+    const chatStop = document.querySelector("#chatStop");
     const chatStatus = document.querySelector("#chatStatus");
     const clearChat = document.querySelector("#clearChat");
     const settingsToast = document.querySelector("#settingsToast");
@@ -892,17 +903,24 @@
     let providers = [];
     let chatMessages = [];
     let chatInFlight = false;
+    let chatAbortController = null;
+    let chatAbortReason = "";
     let settingsToastTimer = null;
+    const CHAT_REQUEST_TIMEOUT_MS = 120000;
 
-    function showSettingsToast() {
+    function showToast(message, durationMs = 3000) {
       window.clearTimeout(settingsToastTimer);
-      settingsToast.textContent = "Settings saved";
+      settingsToast.textContent = message;
       settingsToast.classList.remove("fade-out");
       settingsToast.classList.add("visible");
       settingsToastTimer = window.setTimeout(() => {
         settingsToast.classList.add("fade-out");
         settingsToast.classList.remove("visible");
-      }, 3000);
+      }, durationMs);
+    }
+
+    function showSettingsToast() {
+      showToast("Settings saved");
     }
 
     function switchView(viewName) {
@@ -969,8 +987,8 @@
       if (!response.ok) {
         throw new Error(await response.text());
       }
-      showVncPanel();
       await loadProviders();
+      showVncPanel();
     }
 
     async function loadProviders() {
@@ -1102,7 +1120,11 @@
     }
 
     async function saveSession(name) {
-      await fetch(`/api/providers/${encodeURIComponent(name)}/session`, {method: "POST"});
+      const response = await fetch(`/api/providers/${encodeURIComponent(name)}/session`, {method: "POST"});
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      showToast("Session saved", 2000);
       await loadProviders();
     }
 
@@ -1117,6 +1139,7 @@
     }
 
     chatForm.addEventListener("submit", sendChatMessage);
+    chatStop.addEventListener("click", stopChatRequest);
     clearChat.addEventListener("click", () => {
       chatMessages = [];
       renderChatHistory();
@@ -1195,11 +1218,18 @@
       renderChatHistory();
       setChatBusy(true);
       setChatStatus("Streaming response...");
+      chatAbortController = new AbortController();
+      chatAbortReason = "";
+      const timeoutId = window.setTimeout(() => {
+        chatAbortReason = "Request timed out.";
+        chatAbortController.abort();
+      }, CHAT_REQUEST_TIMEOUT_MS);
 
       try {
         const response = await fetch("/v1/chat/completions", {
           method: "POST",
           headers: {"Content-Type": "application/json"},
+          signal: chatAbortController.signal,
           body: JSON.stringify({
             model,
             stream: true,
@@ -1212,9 +1242,15 @@
         await readChatStream(response, assistantIndex);
         setChatStatus("");
       } catch (error) {
-        updateAssistantBubble(assistantIndex, `Error: ${error.message || error}`);
-        setChatStatus("Request failed.");
+        const message = error.name === "AbortError"
+          ? (chatAbortReason || "Request stopped.")
+          : `Error: ${error.message || error}`;
+        updateAssistantBubble(assistantIndex, message);
+        setChatStatus(error.name === "AbortError" ? message : "Request failed.");
       } finally {
+        window.clearTimeout(timeoutId);
+        chatAbortController = null;
+        chatAbortReason = "";
         setChatBusy(false);
         chatInput.focus();
       }
@@ -1258,10 +1294,17 @@
 
     function setChatBusy(isBusy) {
       chatInFlight = isBusy;
-      chatProvider.disabled = isBusy || !chatProvider.value;
+      chatProvider.disabled = !chatProvider.value;
       chatInput.disabled = isBusy;
       chatSend.disabled = isBusy || !chatProvider.value;
       chatSend.textContent = isBusy ? "Sending..." : "Send";
+      chatStop.disabled = !isBusy;
+    }
+
+    function stopChatRequest() {
+      if (!chatAbortController) return;
+      chatAbortReason = "Request stopped.";
+      chatAbortController.abort();
     }
 
     function setChatStatus(message) {

@@ -71,7 +71,7 @@ class BrowserEngine:
         return runtimes
 
     async def login(self, provider_name: str) -> ProviderRuntime:
-        handle = await self._get_or_create(provider_name)
+        handle = await self._create_fresh_handle(provider_name)
         async with handle.lock:
             handle.status = ProviderStatus.disconnected
             try:
@@ -126,6 +126,14 @@ class BrowserEngine:
             if handle is not None:
                 if self._is_handle_alive(handle):
                     return handle
+                await self._discard_handle(provider_name, handle)
+            await self.start()
+            return await self._create_handle(provider_name)
+
+    async def _create_fresh_handle(self, provider_name: str) -> ProviderHandle:
+        async with self._engine_lock:
+            handle = self._handles.get(provider_name)
+            if handle is not None:
                 await self._discard_handle(provider_name, handle)
             await self.start()
             return await self._create_handle(provider_name)

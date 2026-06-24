@@ -11,7 +11,6 @@ from app.browser_engine import (
     HUMAN_LIKE_HEADERS,
     WEBDRIVER_INIT_SCRIPT,
     BrowserEngine,
-    CLOSED_BROWSER_ERROR,
     ProviderHandle,
 )
 from app.models import ProviderConfig, ProviderStatus
@@ -208,9 +207,9 @@ class BrowserEngineTests(unittest.IsolatedAsyncioTestCase):
             ['Object.defineProperty(navigator, \'platform\', { get: () => "Linux x86_64" });'],
         )
 
-    async def test_login_recreates_context_when_goto_reports_closed_browser(self) -> None:
+    async def test_login_starts_fresh_context_when_session_is_already_open(self) -> None:
         config = provider_config()
-        old_page = FakePage(goto_error=Error(CLOSED_BROWSER_ERROR))
+        old_page = FakePage()
         old_context = FakeContext(old_page)
         new_page = FakePage()
         new_context = FakeContext(new_page)
@@ -230,7 +229,7 @@ class BrowserEngineTests(unittest.IsolatedAsyncioTestCase):
         self.assertIs(handle.context, new_context)
         self.assertEqual(runtime.status, ProviderStatus.connected)
         self.assertEqual(old_context.close_calls, 1)
-        self.assertEqual(old_page.goto_calls, 1)
+        self.assertEqual(old_page.goto_calls, 0)
         self.assertEqual(new_page.goto_calls, 1)
         self.assertEqual(new_page.bring_to_front_calls, 1)
 
