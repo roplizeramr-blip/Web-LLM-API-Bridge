@@ -22,6 +22,7 @@ class ProviderConfig(BaseModel):
     name: str = Field(min_length=1, pattern=r"^[a-zA-Z0-9_-]+$")
     display_name: str
     url: HttpUrl
+    enabled: bool = True
     mode: ProviderMode = ProviderMode.dom
     input_selector: str
     send_button_selector: str | None = None
@@ -35,6 +36,7 @@ class ProviderRuntime(BaseModel):
     name: str
     display_name: str
     url: str
+    enabled: bool
     mode: ProviderMode
     status: ProviderStatus
     error: str | None = None

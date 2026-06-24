@@ -160,6 +160,11 @@
       gap: 14px;
     }
 
+    .card.disabled {
+      opacity: 0.48;
+      background: #0d131c;
+    }
+
     .card-head {
       display: flex;
       justify-content: space-between;
@@ -192,6 +197,81 @@
     .badge.connected { color: var(--ok); border-color: rgba(89, 216, 144, 0.45); }
     .badge.busy { color: var(--warn); border-color: rgba(243, 201, 105, 0.45); }
     .badge.error { color: var(--danger); border-color: rgba(255, 107, 107, 0.45); }
+
+    .status-controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    .switch {
+      position: relative;
+      display: inline-flex;
+      width: 42px;
+      height: 24px;
+      flex: 0 0 auto;
+    }
+
+    .switch input {
+      position: absolute;
+      opacity: 0;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: 0;
+    }
+
+    .slider {
+      width: 100%;
+      height: 100%;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #0c121a;
+      cursor: pointer;
+      transition: background 140ms ease, border-color 140ms ease;
+    }
+
+    .slider::before {
+      content: "";
+      position: absolute;
+      top: 4px;
+      left: 4px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--muted);
+      transition: transform 140ms ease, background 140ms ease;
+    }
+
+    .switch input:checked + .slider {
+      background: rgba(89, 216, 144, 0.18);
+      border-color: rgba(89, 216, 144, 0.55);
+    }
+
+    .switch input:checked + .slider::before {
+      transform: translateX(18px);
+      background: var(--ok);
+    }
+
+    .switch input:focus-visible + .slider {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .danger {
+      min-height: 38px;
+      border-radius: 7px;
+      padding: 8px 12px;
+      cursor: pointer;
+      border: 1px solid rgba(255, 107, 107, 0.42);
+      background: rgba(255, 107, 107, 0.08);
+      color: var(--danger);
+    }
+
+    .danger:hover {
+      background: rgba(255, 107, 107, 0.14);
+    }
 
     .meta {
       display: grid;
@@ -560,6 +640,12 @@
       document.querySelectorAll("[data-save]").forEach((button) => {
         button.addEventListener("click", () => saveSession(button.dataset.save));
       });
+      document.querySelectorAll("[data-toggle]").forEach((input) => {
+        input.addEventListener("change", () => toggleProvider(input.dataset.toggle));
+      });
+      document.querySelectorAll("[data-delete]").forEach((button) => {
+        button.addEventListener("click", () => deleteProvider(button.dataset.delete));
+      });
     }
 
     async function saveSession(name) {
@@ -567,26 +653,45 @@
       await loadProviders();
     }
 
+    async function toggleProvider(name) {
+      await fetch(`/api/providers/${encodeURIComponent(name)}/toggle`, {method: "POST"});
+      await loadProviders();
+    }
+
+    async function deleteProvider(name) {
+      await fetch(`/api/providers/${encodeURIComponent(name)}/delete`, {method: "POST"});
+      await loadProviders();
+    }
+
     function card(provider) {
       const status = provider.status || "disconnected";
       const statusLabel = statusLabels[status] || status;
       const error = provider.error ? `<div class="error-text">${escapeHtml(provider.error)}</div>` : "";
+      const enabled = provider.enabled !== false;
+      const providerName = escapeHtml(provider.name);
       return `
-        <article class="card">
+        <article class="card ${enabled ? "" : "disabled"}">
           <div class="card-head">
             <div>
               <div class="provider-name">${escapeHtml(provider.display_name)}</div>
               <div class="url">${escapeHtml(provider.url)}</div>
             </div>
-            <span class="badge ${status}">${statusLabel}</span>
+            <div class="status-controls">
+              <span class="badge ${status}">${statusLabel}</span>
+              <label class="switch" title="${enabled ? "Disable provider" : "Enable provider"}">
+                <input type="checkbox" data-toggle="${providerName}" ${enabled ? "checked" : ""} aria-label="${enabled ? "Disable" : "Enable"} ${escapeHtml(provider.display_name)}">
+                <span class="slider"></span>
+              </label>
+            </div>
           </div>
           <div class="meta">
-            <span>Model<br><strong>${escapeHtml(provider.name)}</strong></span>
+            <span>Model<br><strong>${providerName}</strong></span>
             <span>Mode<br><strong>${escapeHtml(provider.mode)}</strong></span>
           </div>
           ${error}
-          <button class="primary" data-login="${escapeHtml(provider.name)}">Open Session</button>
-          <button class="ghost" data-save="${escapeHtml(provider.name)}">Save Session</button>
+          <button class="primary" data-login="${providerName}" ${enabled ? "" : "disabled"}>Open Session</button>
+          <button class="ghost" data-save="${providerName}" ${enabled ? "" : "disabled"}>Save Session</button>
+          <button class="danger" data-delete="${providerName}">Delete</button>
         </article>
       `;
     }

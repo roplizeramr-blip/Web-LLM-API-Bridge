@@ -36,6 +36,8 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     # Auto-restore saved sessions
     from app.settings import SESSIONS_DIR
     for p in store.list():
+        if not p.enabled:
+            continue
         session_file = SESSIONS_DIR / f"{p.name}.json"
         if session_file.exists():
             try:
@@ -100,6 +102,22 @@ async def save_provider_session(provider_name: str) -> dict[str, Any]:
     return {"provider": runtime.model_dump(mode="json")}
 
 
+@app.post("/api/providers/{provider_name}/toggle")
+async def toggle_provider(provider_name: str) -> dict[str, Any]:
+    if not store.exists(provider_name):
+        raise HTTPException(status_code=404, detail="Unknown provider")
+    provider = store.toggle(provider_name)
+    return {"provider": provider.model_dump(mode="json")}
+
+
+@app.post("/api/providers/{provider_name}/delete")
+async def delete_provider(provider_name: str) -> dict[str, Any]:
+    if not store.exists(provider_name):
+        raise HTTPException(status_code=404, detail="Unknown provider")
+    store.delete(provider_name)
+    return {"deleted": True}
+
+
 @app.get("/v1/models")
 async def list_models() -> dict[str, Any]:
     providers = await engine.list_runtimes()
@@ -114,6 +132,7 @@ async def list_models() -> dict[str, Any]:
                 "status": provider.status,
             }
             for provider in providers
+            if provider.enabled
         ],
     }
 
@@ -122,6 +141,8 @@ async def list_models() -> dict[str, Any]:
 async def chat_completions(request: ChatCompletionRequest):
     model = request.model or settings.default_model
     if not store.exists(model):
+        raise HTTPException(status_code=404, detail=f"Unknown model/provider: {model}")
+    if not store.load(model).enabled:
         raise HTTPException(status_code=404, detail=f"Unknown model/provider: {model}")
 
     prompt = _messages_to_prompt(request.messages)

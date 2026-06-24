@@ -313,6 +313,7 @@ class BrowserEngine:
             name=config.name,
             display_name=config.display_name,
             url=str(config.url),
+            enabled=config.enabled,
             mode=config.mode,
             status=status,
             error=error,

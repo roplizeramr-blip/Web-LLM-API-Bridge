@@ -46,8 +46,23 @@ class ProviderStore:
             file.write("\n")
         return provider
 
+    def toggle(self, name: str) -> ProviderConfig:
+        provider = self.load(name)
+        provider.enabled = not provider.enabled
+        self._save(provider)
+        return provider
+
+    def delete(self, name: str) -> None:
+        self._path_for(name).unlink()
+
     def exists(self, name: str) -> bool:
         return self._path_for(name).exists()
+
+    def _save(self, provider: ProviderConfig) -> None:
+        path = self._path_for(provider.name)
+        with path.open("w", encoding="utf-8") as file:
+            json.dump(provider.model_dump(mode="json", exclude_none=True), file, indent=2)
+            file.write("\n")
 
     def _path_for(self, name: str) -> Path:
         return self.providers_dir / f"{name}.json"
