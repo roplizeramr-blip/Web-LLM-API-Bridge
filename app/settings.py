@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     response_idle_seconds: float = 1.5
     response_timeout_seconds: float = 180.0
 
-    model_config = SettingsConfigDict(env_prefix="API_BRIDGE_", env_file=".env")
+    model_config = SettingsConfigDict(env_prefix="LLM_BRIDGE_", env_file=".env")
 
 
 settings = Settings()

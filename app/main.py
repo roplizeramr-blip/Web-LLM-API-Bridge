@@ -50,7 +50,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         await engine.stop()
 
 
-app = FastAPI(title="API Bridge", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="LLM API Bridge", version="1.0.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -128,7 +128,7 @@ async def list_models() -> dict[str, Any]:
                 "id": provider.name,
                 "object": "model",
                 "created": 0,
-                "owned_by": "api-bridge",
+                "owned_by": "LLM-Bridge",
                 "status": provider.status,
             }
             for provider in providers
@@ -214,7 +214,7 @@ async def _stream_openai_events(model: str, prompt: str) -> AsyncIterator[str]:
         yield _sse(final)
         yield "data: [DONE]\n\n"
     except Exception as exc:  # noqa: BLE001 - stream errors need to reach clients.
-        yield _sse({"error": {"message": str(exc), "type": "api_bridge_error"}})
+        yield _sse({"error": {"message": str(exc), "type": "llm_bridge_error"}})
         yield "data: [DONE]\n\n"
 
 

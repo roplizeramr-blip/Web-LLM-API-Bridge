@@ -1,6 +1,6 @@
-# API Bridge
+# LLM API Bridge
 
-Local FastAPI bridge that opens provider chat sites in persistent Playwright Chromium contexts and exposes an OpenAI-compatible API on `localhost:9920`.
+LLM API Bridge, short form LLM-Bridge, is a local FastAPI bridge that opens LLM web chat providers in persistent Playwright Chromium contexts and exposes an OpenAI-compatible API on `localhost:9920`.
 
 ## Setup
 
