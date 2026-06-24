@@ -148,7 +148,7 @@
       gap: 14px;
     }
 
-    .card, .form-panel, .settings-panel {
+    .card, .form-panel, .settings-panel, .help-panel {
       border: 1px solid var(--line);
       background: var(--panel);
       border-radius: 8px;
@@ -212,9 +212,57 @@
     .view { display: none; }
     .view.active { display: block; }
 
-    .form-panel, .settings-panel {
+    .form-panel, .settings-panel, .help-panel {
       max-width: 760px;
       padding: 18px;
+    }
+
+    .help-panel {
+      display: grid;
+      gap: 18px;
+    }
+
+    .help-section {
+      display: grid;
+      gap: 8px;
+    }
+
+    .help-section h2 {
+      margin: 0;
+      font-size: 16px;
+      letter-spacing: 0;
+    }
+
+    .help-section p {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .help-section code,
+    .help-section pre {
+      border: 1px solid var(--line);
+      background: #0c121a;
+      border-radius: 7px;
+    }
+
+    .help-section code {
+      padding: 2px 5px;
+      color: var(--text);
+    }
+
+    .help-section pre {
+      margin: 0;
+      padding: 12px;
+      color: var(--text);
+      overflow-x: auto;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    .help-section pre code {
+      border: 0;
+      background: transparent;
+      padding: 0;
     }
 
     form {
@@ -313,6 +361,7 @@
         <button class="nav-button active" data-view-button="providers">Providers</button>
         <button class="nav-button" data-view-button="add">Add Provider</button>
         <button class="nav-button" data-view-button="settings">Settings</button>
+        <button class="nav-button" data-view-button="help">Help</button>
       </nav>
     </aside>
     <main>
@@ -375,6 +424,47 @@
           </div>
         </div>
         <div class="settings-panel" id="settingsPanel"></div>
+      </section>
+
+      <section class="view" data-view="help">
+        <div class="topbar">
+          <div>
+            <h1>API Usage</h1>
+            <div class="subtle">Use the local bridge with OpenAI-compatible clients.</div>
+          </div>
+        </div>
+        <div class="help-panel">
+          <section class="help-section">
+            <h2>Endpoint</h2>
+            <p><code>POST http://AGDEV_IP:9920/v1/chat/completions</code></p>
+          </section>
+
+          <section class="help-section">
+            <h2>Provider Selection</h2>
+            <p>Set the <code>model</code> field to one of: <code>chatgpt</code>, <code>claude</code>, <code>gemini</code>, <code>deepseek</code>.</p>
+            <p>Each provider must be logged in via the dashboard first.</p>
+          </section>
+
+          <section class="help-section">
+            <h2>Example: curl</h2>
+            <pre><code>curl -X POST http://AGDEV_IP:9920/v1/chat/completions -H "Content-Type: application/json" -d '{model:chatgpt,messages:[{role:user,content:Hello}],stream:false}'</code></pre>
+          </section>
+
+          <section class="help-section">
+            <h2>Example: streaming</h2>
+            <pre><code>curl -X POST http://AGDEV_IP:9920/v1/chat/completions -H "Content-Type: application/json" -d '{model:chatgpt,messages:[{role:user,content:Hello}],stream:true}'</code></pre>
+          </section>
+
+          <section class="help-section">
+            <h2>OpenAI-compatible</h2>
+            <p>This API uses the same format as OpenAI. Use it with any tool that supports OpenAI API by setting the base URL to <code>http://AGDEV_IP:9920/v1</code>.</p>
+          </section>
+
+          <section class="help-section">
+            <h2>Models endpoint</h2>
+            <p><code>GET http://AGDEV_IP:9920/v1/models</code> returns list of connected providers.</p>
+          </section>
+        </div>
       </section>
     </main>
   </div>
