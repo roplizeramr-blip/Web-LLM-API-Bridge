@@ -108,7 +108,7 @@ class BrowserEngine:
             config = self.store.load(provider_name)
             assert self._playwright is not None
             user_data_dir = self._user_data_dir(config)
-            context = await self._playwright.chromium.launch_persistent_context(
+            context = await self._playwright.chromium.launch_persistent_context(executable_path="/usr/bin/chromium-browser", 
                 user_data_dir=str(user_data_dir),
                 headless=settings.headless,
                 viewport={"width": 1360, "height": 900},
