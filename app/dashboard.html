@@ -579,23 +579,27 @@
     const vncFrame = document.querySelector("#vncFrame");
     const vncUrl = `/novnc/vnc_lite.html?host=${encodeURIComponent(window.location.hostname || "127.0.0.1")}&port=6080&path=websockify&scale=true`;
 
-    document.querySelectorAll("[data-view-button]").forEach((button) => {
-      button.addEventListener("click", () => {
-        document.querySelectorAll("[data-view-button]").forEach((b) => b.classList.remove("active"));
-        document.querySelectorAll("[data-view]").forEach((v) => v.classList.remove("active"));
-        button.classList.add("active");
-        document.querySelector(`[data-view="${button.dataset.viewButton}"]`).classList.add("active");
+    function switchView(viewName) {
+      document.querySelectorAll("[data-view-button]").forEach((button) => {
+        button.classList.toggle("active", button.dataset.viewButton === viewName);
       });
+      document.querySelectorAll("[data-view]").forEach((view) => {
+        view.classList.toggle("active", view.dataset.view === viewName);
+      });
+    }
+
+    document.querySelectorAll("[data-view-button]").forEach((button) => {
+      button.addEventListener("click", () => switchView(button.dataset.viewButton));
     });
 
     document.querySelector("#refresh").addEventListener("click", loadProviders);
     function showVncPanel() {
-      document.querySelector('[data-view-button="providers"]').click();
+      switchView("providers");
       vncPanel.classList.add("active");
       vncPanel.setAttribute("aria-hidden", "false");
       toggleVnc.setAttribute("aria-expanded", "true");
       toggleVnc.textContent = "Hide Browser";
-      if (!vncFrame.src) {
+      if (!vncFrame.getAttribute("src")) {
         vncFrame.src = vncUrl;
       }
     }
@@ -605,7 +609,7 @@
       vncPanel.setAttribute("aria-hidden", String(!isOpen));
       toggleVnc.setAttribute("aria-expanded", String(isOpen));
       toggleVnc.textContent = isOpen ? "Hide Browser" : "Show Browser";
-      if (isOpen && !vncFrame.src) {
+      if (isOpen && !vncFrame.getAttribute("src")) {
         vncFrame.src = vncUrl;
       }
     });
@@ -631,7 +635,7 @@
       }
       form.reset();
       await loadProviders();
-      document.querySelector('[data-view-button="providers"]').click();
+      switchView("providers");
     });
 
     async function login(name) {
