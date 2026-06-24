@@ -575,6 +575,33 @@
       min-height: 18px;
     }
 
+    .toast {
+      position: fixed;
+      top: 18px;
+      right: 18px;
+      z-index: 20;
+      padding: 10px 14px;
+      border-radius: 7px;
+      background: #1f9d55;
+      color: #fff;
+      font-weight: 700;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.32);
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(-8px);
+      transition: opacity 240ms ease, transform 240ms ease;
+    }
+
+    .toast.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .toast.fade-out {
+      opacity: 0;
+      transform: translateY(-8px);
+    }
+
     .vnc-panel {
       display: none;
       border: 1px solid var(--line);
@@ -839,6 +866,7 @@
       </section>
     </main>
   </div>
+  <div class="toast" id="settingsToast" role="status" aria-live="polite">Settings saved</div>
 
   <script>
     const grid = document.querySelector("#providerGrid");
@@ -856,6 +884,7 @@
     const chatSend = document.querySelector("#chatSend");
     const chatStatus = document.querySelector("#chatStatus");
     const clearChat = document.querySelector("#clearChat");
+    const settingsToast = document.querySelector("#settingsToast");
     const vncUrl = `/novnc/vnc_lite.html?host=${encodeURIComponent(window.location.hostname || "127.0.0.1")}&port=6080&path=websockify&scale=true`;
     let browserSettings = null;
     let browserOptions = {timezones: [], user_agents: [], user_agent_platforms: {}};
@@ -863,6 +892,18 @@
     let providers = [];
     let chatMessages = [];
     let chatInFlight = false;
+    let settingsToastTimer = null;
+
+    function showSettingsToast() {
+      window.clearTimeout(settingsToastTimer);
+      settingsToast.textContent = "Settings saved";
+      settingsToast.classList.remove("fade-out");
+      settingsToast.classList.add("visible");
+      settingsToastTimer = window.setTimeout(() => {
+        settingsToast.classList.add("fade-out");
+        settingsToast.classList.remove("visible");
+      }, 3000);
+    }
 
     function switchView(viewName) {
       document.querySelectorAll("[data-view-button]").forEach((button) => {
@@ -1021,7 +1062,11 @@
     async function saveBrowserSettings(event) {
       event.preventDefault();
       const error = document.querySelector("#browserSettingsError");
+      const button = event.currentTarget.querySelector("button[type='submit']");
+      const originalText = button.textContent;
       error.textContent = "";
+      button.textContent = "Saving...";
+      button.disabled = true;
       const data = Object.fromEntries(new FormData(event.currentTarget).entries());
       const presetOption = event.currentTarget.elements.user_agent_preset.selectedOptions[0];
       const userAgent = data.user_agent_preset === "Custom"
@@ -1038,24 +1083,22 @@
         timezone: data.timezone,
         platform,
       };
-      const response = await fetch("/api/settings/browser", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify(payload),
-      });
-      if (!response.ok) {
-        error.textContent = await response.text();
-        return;
-      }
-      browserSettings = (await response.json()).settings;
-      const button = event.currentTarget.querySelector("button[type='submit']");
-      const originalText = button.textContent;
-      button.textContent = "Saved!";
-      button.disabled = true;
-      window.setTimeout(() => {
+      try {
+        const response = await fetch("/api/settings/browser", {
+          method: "POST",
+          headers: {"Content-Type": "application/json"},
+          body: JSON.stringify(payload),
+        });
+        if (!response.ok) {
+          error.textContent = await response.text();
+          return;
+        }
+        browserSettings = (await response.json()).settings;
+        showSettingsToast();
+      } finally {
         button.textContent = originalText;
         button.disabled = false;
-      }, 2000);
+      }
     }
 
     async function saveSession(name) {
