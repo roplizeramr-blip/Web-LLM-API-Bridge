@@ -20,7 +20,9 @@ from app.models import ChatCompletionRequest, ChatMessage, ProviderCreateRequest
 from app.provider_store import ProviderStore
 from app.settings import (
     BASE_DIR,
+    COMMON_TIMEZONES,
     BrowserFingerprintSettings,
+    USER_AGENT_PRESETS,
     load_browser_fingerprint_settings,
     save_browser_fingerprint_settings,
     settings,
@@ -126,7 +128,16 @@ async def delete_provider(provider_name: str) -> dict[str, Any]:
 
 @app.get("/api/settings/browser")
 async def get_browser_settings() -> dict[str, Any]:
-    return {"settings": load_browser_fingerprint_settings().model_dump(mode="json")}
+    return {
+        "settings": load_browser_fingerprint_settings().model_dump(mode="json"),
+        "options": {
+            "timezones": list(COMMON_TIMEZONES),
+            "user_agents": [
+                {"label": label, "value": value}
+                for label, value in USER_AGENT_PRESETS.items()
+            ],
+        },
+    }
 
 
 @app.post("/api/settings/browser")

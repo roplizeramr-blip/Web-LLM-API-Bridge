@@ -15,7 +15,7 @@ from app.browser_engine import (
     ProviderHandle,
 )
 from app.models import ProviderConfig, ProviderStatus
-from app.settings import BrowserFingerprintSettings
+from app.settings import BrowserFingerprintSettings, USER_AGENT_PRESETS
 
 
 class FakePage:
@@ -181,8 +181,9 @@ class BrowserEngineTests(unittest.IsolatedAsyncioTestCase):
         engine = BrowserEngine(FakeStore(config))
         fake_playwright = FakePlaywright([context])
         engine._playwright = fake_playwright
+        user_agent = USER_AGENT_PRESETS["Chrome 124 Linux"]
         browser_settings = BrowserFingerprintSettings(
-            user_agent="Custom Agent",
+            user_agent=user_agent,
             extra_headers={"Accept-Language": "fr-FR,fr;q=0.9"},
             disable_webdriver=False,
             locale="fr-FR",
@@ -197,11 +198,11 @@ class BrowserEngineTests(unittest.IsolatedAsyncioTestCase):
             await engine._create_handle(config.name)
 
         launch_kwargs = fake_playwright.chromium.launch_kwargs[0]
-        self.assertEqual(launch_kwargs["user_agent"], "Custom Agent")
+        self.assertEqual(launch_kwargs["user_agent"], user_agent)
         self.assertEqual(launch_kwargs["extra_http_headers"], {"Accept-Language": "fr-FR,fr;q=0.9"})
         self.assertEqual(launch_kwargs["locale"], "fr-FR")
         self.assertEqual(launch_kwargs["timezone_id"], "Europe/Paris")
-        self.assertIn("--user-agent=Custom Agent", launch_kwargs["args"])
+        self.assertIn(f"--user-agent={user_agent}", launch_kwargs["args"])
         self.assertEqual(
             context.page.init_scripts,
             ['Object.defineProperty(navigator, \'platform\', { get: () => "Linux x86_64" });'],

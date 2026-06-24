@@ -618,6 +618,7 @@
     const vncFrame = document.querySelector("#vncFrame");
     const vncUrl = `/novnc/vnc_lite.html?host=${encodeURIComponent(window.location.hostname || "127.0.0.1")}&port=6080&path=websockify&scale=true`;
     let browserSettings = null;
+    let browserOptions = {timezones: [], user_agents: []};
     let runtimeSettings = null;
 
     function switchView(viewName) {
@@ -713,6 +714,7 @@
       const response = await fetch("/api/settings/browser");
       const payload = await response.json();
       browserSettings = payload.settings;
+      browserOptions = payload.options || browserOptions;
     }
 
     function renderSettings(runtimeSettings) {
@@ -729,7 +731,11 @@
           <h2>Browser Fingerprint</h2>
           <p class="note">These browser fingerprint settings help provider sessions look like normal user browsers and can help bypass CAPTCHAs.</p>
           <form id="browserSettingsForm">
-            <label>User Agent<input name="user_agent" value="${escapeAttribute(settings.user_agent || "")}" required></label>
+            <label>User Agent
+              <select name="user_agent" required>
+                ${userAgentOptions(settings.user_agent || "")}
+              </select>
+            </label>
             <label class="checkbox-row"><input name="disable_webdriver" type="checkbox" ${settings.disable_webdriver ? "checked" : ""}> Disable webdriver flag</label>
             <div class="two">
               <label>Locale<input name="locale" value="${escapeAttribute(settings.locale || "en-US")}" required></label>
@@ -771,7 +777,14 @@
         return;
       }
       browserSettings = (await response.json()).settings;
-      renderSettings(runtimeSettings);
+      const button = event.currentTarget.querySelector("button[type='submit']");
+      const originalText = button.textContent;
+      button.textContent = "Saved!";
+      button.disabled = true;
+      window.setTimeout(() => {
+        button.textContent = originalText;
+        button.disabled = false;
+      }, 2000);
     }
 
     async function saveSession(name) {
@@ -847,19 +860,18 @@
     }
 
     function timezoneOptions(selected) {
-      return [
-        "America/New_York",
-        "America/Chicago",
-        "America/Denver",
-        "America/Los_Angeles",
-        "America/Phoenix",
-        "America/Anchorage",
-        "Pacific/Honolulu",
-        "UTC",
-        "Europe/London",
-        "Europe/Berlin",
-        "Asia/Tokyo",
-      ].map((zone) => `<option value="${escapeAttribute(zone)}" ${zone === selected ? "selected" : ""}>${escapeHtml(zone)}</option>`).join("");
+      return browserOptions.timezones
+        .map((zone) => `<option value="${escapeAttribute(zone)}" ${zone === selected ? "selected" : ""}>${escapeHtml(zone)}</option>`)
+        .join("");
+    }
+
+    function userAgentOptions(selected) {
+      return browserOptions.user_agents
+        .map((agent) => {
+          const selectedAttribute = agent.value === selected ? "selected" : "";
+          return `<option value="${escapeAttribute(agent.value)}" ${selectedAttribute}>${escapeHtml(agent.label)}</option>`;
+        })
+        .join("");
     }
 
     loadProviders();

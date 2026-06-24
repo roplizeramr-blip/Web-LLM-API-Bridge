@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -15,6 +15,85 @@ BROWSER_SETTINGS_PATH = DATA_DIR / "browser_settings.json"
 DEFAULT_USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+)
+
+USER_AGENT_PRESETS: dict[str, str] = {
+    "Chrome 124 Windows": DEFAULT_USER_AGENT,
+    "Chrome 120 macOS": (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    ),
+    "Firefox 123 Windows": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) "
+        "Gecko/20100101 Firefox/123.0"
+    ),
+    "Edge 124 Windows": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 Edg/124.0.0.0"
+    ),
+    "Safari 17 macOS": (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_4) AppleWebKit/605.1.15 "
+        "(KHTML, like Gecko) Version/17.4 Safari/605.1.15"
+    ),
+    "Chrome Mobile Android": (
+        "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/124.0.6367.83 Mobile Safari/537.36"
+    ),
+    "Firefox Mobile Android": (
+        "Mozilla/5.0 (Android 14; Mobile; rv:123.0) Gecko/123.0 Firefox/123.0"
+    ),
+    "Chrome 124 Linux": (
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+    ),
+    "Opera Windows": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 OPR/109.0.0.0"
+    ),
+    "Brave Windows": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 Brave/124.0"
+    ),
+}
+
+COMMON_TIMEZONES: tuple[str, ...] = (
+    "UTC",
+    "America/New_York",
+    "America/Chicago",
+    "America/Denver",
+    "America/Los_Angeles",
+    "America/Phoenix",
+    "America/Anchorage",
+    "Pacific/Honolulu",
+    "America/Toronto",
+    "America/Mexico_City",
+    "America/Sao_Paulo",
+    "Europe/London",
+    "Europe/Dublin",
+    "Europe/Paris",
+    "Europe/Berlin",
+    "Europe/Madrid",
+    "Europe/Rome",
+    "Europe/Amsterdam",
+    "Europe/Zurich",
+    "Europe/Stockholm",
+    "Europe/Warsaw",
+    "Europe/Athens",
+    "Europe/Istanbul",
+    "Africa/Cairo",
+    "Africa/Johannesburg",
+    "Asia/Dubai",
+    "Asia/Jerusalem",
+    "Asia/Kolkata",
+    "Asia/Bangkok",
+    "Asia/Singapore",
+    "Asia/Shanghai",
+    "Asia/Hong_Kong",
+    "Asia/Seoul",
+    "Asia/Tokyo",
+    "Australia/Perth",
+    "Australia/Sydney",
+    "Pacific/Auckland",
 )
 
 
@@ -55,6 +134,22 @@ class BrowserFingerprintSettings(BaseModel):
     locale: str = settings.locale
     timezone: str = settings.timezone
     platform: str = settings.platform
+
+    model_config = ConfigDict(validate_assignment=True)
+
+    @field_validator("user_agent")
+    @classmethod
+    def user_agent_must_be_preset(cls, value: str) -> str:
+        if value not in USER_AGENT_PRESETS.values():
+            raise ValueError("user_agent must be one of the browser fingerprint presets")
+        return value
+
+    @field_validator("timezone")
+    @classmethod
+    def timezone_must_be_common(cls, value: str) -> str:
+        if value not in COMMON_TIMEZONES:
+            raise ValueError("timezone must be one of the browser fingerprint presets")
+        return value
 
 
 def ensure_data_dirs() -> None:
