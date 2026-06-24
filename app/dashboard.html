@@ -569,6 +569,7 @@
 
     function card(provider) {
       const status = provider.status || "disconnected";
+      const statusLabel = statusLabels[status] || status;
       const error = provider.error ? `<div class="error-text">${escapeHtml(provider.error)}</div>` : "";
       return `
         <article class="card">
@@ -577,7 +578,7 @@
               <div class="provider-name">${escapeHtml(provider.display_name)}</div>
               <div class="url">${escapeHtml(provider.url)}</div>
             </div>
-            <span class="badge ${status}">${status}</span>
+            <span class="badge ${status}">${statusLabel}</span>
           </div>
           <div class="meta">
             <span>Model<br><strong>${escapeHtml(provider.name)}</strong></span>
@@ -589,6 +590,12 @@
         </article>
       `;
     }
+
+    const statusLabels = {
+      connected: "Session Open",
+      disconnected: "Closed",
+      error: "Error",
+    };
 
     function escapeHtml(value) {
       return String(value).replace(/[&<>"']/g, (char) => ({
