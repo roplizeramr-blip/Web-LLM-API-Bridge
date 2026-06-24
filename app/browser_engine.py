@@ -123,7 +123,7 @@ class BrowserEngine:
             executable_path="/usr/bin/chromium-browser",
             user_data_dir=str(user_data_dir),
             headless=settings.headless,
-            viewport={"width": 1360, "height": 900},
+            viewport={"width": 1920, "height": 1080},
             args=["--disable-blink-features=AutomationControlled"],
         )
         page = context.pages[0] if context.pages else await context.new_page()
