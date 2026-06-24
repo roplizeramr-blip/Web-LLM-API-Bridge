@@ -6,5 +6,6 @@ __pycache__/
 .mypy_cache/
 data/sessions/
 data/browser/
+data/vnc/
 data/*.db
 .env

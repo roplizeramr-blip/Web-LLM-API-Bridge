@@ -135,6 +135,13 @@
       color: var(--text);
     }
 
+    .topbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
     .grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
@@ -244,12 +251,57 @@
       min-height: 18px;
     }
 
+    .vnc-panel {
+      display: none;
+      border: 1px solid var(--line);
+      background: #070a0f;
+      border-radius: 8px;
+      margin-bottom: 18px;
+      overflow: hidden;
+    }
+
+    .vnc-panel.active {
+      display: block;
+    }
+
+    .vnc-head {
+      min-height: 42px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      background: #0d131c;
+    }
+
+    .vnc-title {
+      font-weight: 700;
+    }
+
+    .vnc-frame-wrap {
+      height: min(68vh, 720px);
+      min-height: 360px;
+      background: #000;
+    }
+
+    .vnc-frame {
+      width: 100%;
+      height: 100%;
+      display: block;
+      border: 0;
+      background: #000;
+    }
+
     @media (max-width: 760px) {
       .shell { grid-template-columns: 1fr; }
       aside { border-right: 0; border-bottom: 1px solid var(--line); }
       main { padding: 18px; }
       .topbar { align-items: flex-start; flex-direction: column; }
+      .topbar-actions { width: 100%; }
+      .topbar-actions button { flex: 1; }
       .two { grid-template-columns: 1fr; }
+      .vnc-frame-wrap { height: 54vh; min-height: 300px; }
     }
   </style>
 </head>
@@ -270,7 +322,22 @@
             <h1>Providers</h1>
             <div class="subtle">Login once per provider, then use the local OpenAI-compatible endpoint.</div>
           </div>
-          <button class="ghost" id="refresh">Refresh</button>
+          <div class="topbar-actions">
+            <button class="ghost" id="toggleVnc" type="button" aria-expanded="false">Show Browser</button>
+            <button class="ghost" id="refresh" type="button">Refresh</button>
+          </div>
+        </div>
+        <div class="vnc-panel" id="vncPanel" aria-hidden="true">
+          <div class="vnc-head">
+            <div>
+              <div class="vnc-title">Playwright Browser</div>
+              <div class="subtle">DISPLAY=:99 via x11vnc</div>
+            </div>
+            <button class="ghost" id="reloadVnc" type="button">Reload</button>
+          </div>
+          <div class="vnc-frame-wrap">
+            <iframe class="vnc-frame" id="vncFrame" title="Playwright browser"></iframe>
+          </div>
         </div>
         <div class="grid" id="providerGrid"></div>
       </section>
@@ -317,6 +384,11 @@
     const settingsPanel = document.querySelector("#settingsPanel");
     const form = document.querySelector("#providerForm");
     const formError = document.querySelector("#formError");
+    const toggleVnc = document.querySelector("#toggleVnc");
+    const reloadVnc = document.querySelector("#reloadVnc");
+    const vncPanel = document.querySelector("#vncPanel");
+    const vncFrame = document.querySelector("#vncFrame");
+    const vncUrl = `/novnc/vnc_lite.html?host=${encodeURIComponent(window.location.hostname || "127.0.0.1")}&port=6080&path=websockify&scale=true`;
 
     document.querySelectorAll("[data-view-button]").forEach((button) => {
       button.addEventListener("click", () => {
@@ -328,6 +400,18 @@
     });
 
     document.querySelector("#refresh").addEventListener("click", loadProviders);
+    toggleVnc.addEventListener("click", () => {
+      const isOpen = vncPanel.classList.toggle("active");
+      vncPanel.setAttribute("aria-hidden", String(!isOpen));
+      toggleVnc.setAttribute("aria-expanded", String(isOpen));
+      toggleVnc.textContent = isOpen ? "Hide Browser" : "Show Browser";
+      if (isOpen && !vncFrame.src) {
+        vncFrame.src = vncUrl;
+      }
+    });
+    reloadVnc.addEventListener("click", () => {
+      vncFrame.src = vncUrl;
+    });
 
     form.addEventListener("submit", async (event) => {
       event.preventDefault();

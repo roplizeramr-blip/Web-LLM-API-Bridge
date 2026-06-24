@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import os
+import subprocess
 import time
 import uuid
 from collections.abc import AsyncIterator
@@ -11,6 +13,7 @@ from typing import Any
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.browser_engine import BrowserEngine
 from app.models import ChatCompletionRequest, ChatMessage, ProviderCreateRequest
@@ -21,10 +24,14 @@ from app.settings import BASE_DIR, settings
 store = ProviderStore()
 engine = BrowserEngine(store)
 DASHBOARD_PATH = BASE_DIR / "app" / "dashboard.html"
+NOVNC_PATH = BASE_DIR / "novnc"
+VNC_SETUP_PATH = BASE_DIR / "app" / "vnc_setup.sh"
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    os.environ.setdefault("DISPLAY", ":99")
+    _start_vnc()
     await engine.start()
     try:
         yield
@@ -40,6 +47,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.mount("/novnc", StaticFiles(directory=NOVNC_PATH), name="novnc")
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -182,6 +190,12 @@ async def _stream_openai_events(model: str, prompt: str) -> AsyncIterator[str]:
 
 def _sse(payload: dict[str, Any]) -> str:
     return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+
+def _start_vnc() -> None:
+    if not VNC_SETUP_PATH.exists():
+        raise RuntimeError(f"VNC setup script not found: {VNC_SETUP_PATH}")
+    subprocess.run([str(VNC_SETUP_PATH)], cwd=str(BASE_DIR), check=True)
 
 
 def _messages_to_prompt(messages: list[ChatMessage]) -> str:
