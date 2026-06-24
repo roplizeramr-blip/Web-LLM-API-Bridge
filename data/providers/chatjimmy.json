@@ -1,0 +1,10 @@
+{
+  "name": "chatjimmy",
+  "display_name": "ChatJimmy",
+  "url": "https://chatjimmy.ai/",
+  "mode": "dom",
+  "input_selector": "textarea[placeholder='Ask me anything...']",
+  "send_button_selector": "form button[type='submit']",
+  "response_selector": "#scroller > div > div.flex.flex-1.text-base:has(div.font-semibold.pb-2.flex)",
+  "response_text_selector": "#scroller div.whitespace-pre-wrap.break-words"
+}
