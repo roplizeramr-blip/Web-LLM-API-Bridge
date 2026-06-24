@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import shutil
 import time
 from collections.abc import AsyncIterator
@@ -11,24 +12,23 @@ from playwright.async_api import BrowserContext, Error, Page, Playwright, async_
 
 from app.models import ProviderConfig, ProviderMode, ProviderRuntime, ProviderStatus
 from app.provider_store import ProviderStore
-from app.settings import BROWSER_DIR, SESSIONS_DIR, ensure_data_dirs, settings
+from app.settings import (
+    BROWSER_DIR,
+    DEFAULT_USER_AGENT,
+    SESSIONS_DIR,
+    BrowserFingerprintSettings,
+    default_extra_headers,
+    ensure_data_dirs,
+    load_browser_fingerprint_settings,
+    settings,
+)
 
 
 CLOSED_BROWSER_ERROR = "Target page, context or browser has been closed"
 BROWSER_VIEWPORT = {"width": 1920, "height": 1080}
-CHROME_124_USER_AGENT = (
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
-)
-HUMAN_LIKE_HEADERS = {
-    "Accept-Language": "en-US,en;q=0.9",
-    "Sec-CH-UA": '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
-}
-WEBDRIVER_INIT_SCRIPT = """
-Object.defineProperty(navigator, 'webdriver', {
-  get: () => undefined,
-});
-"""
+CHROME_124_USER_AGENT = DEFAULT_USER_AGENT
+HUMAN_LIKE_HEADERS = default_extra_headers()
+WEBDRIVER_INIT_SCRIPT = "Object.defineProperty(navigator, 'webdriver', { get: () => undefined });"
 
 
 @dataclass
@@ -134,23 +134,28 @@ class BrowserEngine:
         config = self.store.load(provider_name)
         assert self._playwright is not None
         user_data_dir = self._user_data_dir(config)
+        browser_settings = load_browser_fingerprint_settings()
+        init_script = self._browser_init_script(browser_settings)
         context = await self._playwright.chromium.launch_persistent_context(
             executable_path="/usr/bin/chromium-browser",
             user_data_dir=str(user_data_dir),
             headless=settings.headless,
-            user_agent=CHROME_124_USER_AGENT,
-            extra_http_headers=HUMAN_LIKE_HEADERS,
+            user_agent=browser_settings.user_agent,
+            extra_http_headers=browser_settings.extra_headers,
+            locale=browser_settings.locale,
+            timezone_id=browser_settings.timezone,
             args=[
                 "--window-size=1920,1080",
                 "--no-sandbox",
                 "--disable-blink-features=AutomationControlled",
-                f"--user-agent={CHROME_124_USER_AGENT}",
+                f"--user-agent={browser_settings.user_agent}",
                 "--start-maximized",
                 "--window-position=0,0",
             ],
         )
         page = context.pages[0] if context.pages else await context.new_page()
-        await page.add_init_script(WEBDRIVER_INIT_SCRIPT)
+        if init_script:
+            await page.add_init_script(init_script)
         await self._fit_browser_window(page)
         handle = ProviderHandle(
             config=config,
@@ -160,6 +165,17 @@ class BrowserEngine:
         )
         self._handles[provider_name] = handle
         return handle
+
+    def _browser_init_script(self, browser_settings: BrowserFingerprintSettings) -> str:
+        scripts: list[str] = []
+        if browser_settings.disable_webdriver:
+            scripts.append(WEBDRIVER_INIT_SCRIPT)
+        if browser_settings.platform:
+            scripts.append(
+                "Object.defineProperty(navigator, 'platform', "
+                f"{{ get: () => {json.dumps(browser_settings.platform)} }});"
+            )
+        return "\n".join(scripts)
 
     async def _fit_browser_window(self, page: Page) -> None:
         await page.set_viewport_size(BROWSER_VIEWPORT)

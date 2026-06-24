@@ -15,6 +15,7 @@ from app.browser_engine import (
     ProviderHandle,
 )
 from app.models import ProviderConfig, ProviderStatus
+from app.settings import BrowserFingerprintSettings
 
 
 class FakePage:
@@ -148,6 +149,8 @@ class BrowserEngineTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("no_sandbox", launch_kwargs)
         self.assertEqual(launch_kwargs["user_agent"], CHROME_124_USER_AGENT)
         self.assertEqual(launch_kwargs["extra_http_headers"], HUMAN_LIKE_HEADERS)
+        self.assertEqual(launch_kwargs["locale"], "en-US")
+        self.assertEqual(launch_kwargs["timezone_id"], "America/New_York")
         self.assertEqual(launch_kwargs["args"][0], "--window-size=1920,1080")
         self.assertIn("--no-sandbox", launch_kwargs["args"])
         self.assertIn("--start-maximized", launch_kwargs["args"])
@@ -155,11 +158,53 @@ class BrowserEngineTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("--window-size=1920,1080", launch_kwargs["args"])
         self.assertIn(f"--user-agent={CHROME_124_USER_AGENT}", launch_kwargs["args"])
         maximize_window.assert_awaited_once_with()
-        self.assertEqual(context.page.init_scripts, [WEBDRIVER_INIT_SCRIPT])
+        self.assertEqual(
+            context.page.init_scripts,
+            [
+                "\n".join(
+                    [
+                        WEBDRIVER_INIT_SCRIPT,
+                        'Object.defineProperty(navigator, \'platform\', { get: () => "Win32" });',
+                    ]
+                )
+            ],
+        )
         self.assertEqual(context.page.viewport_sizes, [{"width": 1920, "height": 1080}])
         self.assertEqual(
             context.page.evaluate_calls,
             ["window.moveTo(0,0); window.resizeTo(1920, 1080)"],
+        )
+
+    async def test_create_handle_uses_browser_fingerprint_overrides(self) -> None:
+        config = provider_config()
+        context = FakeContext(FakePage())
+        engine = BrowserEngine(FakeStore(config))
+        fake_playwright = FakePlaywright([context])
+        engine._playwright = fake_playwright
+        browser_settings = BrowserFingerprintSettings(
+            user_agent="Custom Agent",
+            extra_headers={"Accept-Language": "fr-FR,fr;q=0.9"},
+            disable_webdriver=False,
+            locale="fr-FR",
+            timezone="Europe/Paris",
+            platform="Linux x86_64",
+        )
+
+        with (
+            patch("app.browser_engine.load_browser_fingerprint_settings", return_value=browser_settings),
+            patch.object(engine, "_maximize_window", new=AsyncMock()),
+        ):
+            await engine._create_handle(config.name)
+
+        launch_kwargs = fake_playwright.chromium.launch_kwargs[0]
+        self.assertEqual(launch_kwargs["user_agent"], "Custom Agent")
+        self.assertEqual(launch_kwargs["extra_http_headers"], {"Accept-Language": "fr-FR,fr;q=0.9"})
+        self.assertEqual(launch_kwargs["locale"], "fr-FR")
+        self.assertEqual(launch_kwargs["timezone_id"], "Europe/Paris")
+        self.assertIn("--user-agent=Custom Agent", launch_kwargs["args"])
+        self.assertEqual(
+            context.page.init_scripts,
+            ['Object.defineProperty(navigator, \'platform\', { get: () => "Linux x86_64" });'],
         )
 
     async def test_login_recreates_context_when_goto_reports_closed_browser(self) -> None:

@@ -109,7 +109,7 @@
       margin-top: 4px;
     }
 
-    button, input {
+    button, input, select {
       font: inherit;
     }
 
@@ -376,7 +376,7 @@
       font-size: 12px;
     }
 
-    input {
+    input, select {
       width: 100%;
       min-height: 38px;
       border-radius: 7px;
@@ -384,6 +384,45 @@
       background: #0c121a;
       color: var(--text);
       padding: 8px 10px;
+    }
+
+    .settings-panel {
+      display: grid;
+      gap: 18px;
+    }
+
+    .settings-section {
+      display: grid;
+      gap: 12px;
+    }
+
+    .settings-section h2 {
+      margin: 0;
+      font-size: 16px;
+      letter-spacing: 0;
+    }
+
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--text);
+      font-size: 14px;
+    }
+
+    .checkbox-row input {
+      width: 16px;
+      min-height: 16px;
+      flex: 0 0 auto;
+    }
+
+    .note {
+      border: 1px solid rgba(243, 201, 105, 0.35);
+      border-radius: 7px;
+      background: rgba(243, 201, 105, 0.08);
+      color: var(--muted);
+      padding: 10px 12px;
+      margin: 0;
     }
 
     .two {
@@ -578,6 +617,8 @@
     const vncPanel = document.querySelector("#vncPanel");
     const vncFrame = document.querySelector("#vncFrame");
     const vncUrl = `/novnc/vnc_lite.html?host=${encodeURIComponent(window.location.hostname || "127.0.0.1")}&port=6080&path=websockify&scale=true`;
+    let browserSettings = null;
+    let runtimeSettings = null;
 
     function switchView(viewName) {
       document.querySelectorAll("[data-view-button]").forEach((button) => {
@@ -651,12 +692,9 @@
       const response = await fetch("/api/providers");
       const payload = await response.json();
       grid.innerHTML = payload.providers.map((provider) => card(provider)).join("");
-      settingsPanel.innerHTML = `
-        <div class="meta">
-          <span>Port<br><strong>${payload.settings.port}</strong></span>
-          <span>Default model<br><strong>${payload.settings.default_model}</strong></span>
-        </div>
-      `;
+      runtimeSettings = payload.settings;
+      await loadBrowserSettings();
+      renderSettings(runtimeSettings);
       document.querySelectorAll("[data-login]").forEach((button) => {
         button.addEventListener("click", () => login(button.dataset.login));
       });
@@ -669,6 +707,71 @@
       document.querySelectorAll("[data-delete]").forEach((button) => {
         button.addEventListener("click", () => deleteProvider(button.dataset.delete));
       });
+    }
+
+    async function loadBrowserSettings() {
+      const response = await fetch("/api/settings/browser");
+      const payload = await response.json();
+      browserSettings = payload.settings;
+    }
+
+    function renderSettings(runtimeSettings) {
+      const settings = browserSettings || {};
+      settingsPanel.innerHTML = `
+        <section class="settings-section">
+          <h2>Runtime</h2>
+          <div class="meta">
+            <span>Port<br><strong>${escapeHtml(runtimeSettings.port)}</strong></span>
+            <span>Default model<br><strong>${escapeHtml(runtimeSettings.default_model)}</strong></span>
+          </div>
+        </section>
+        <section class="settings-section">
+          <h2>Browser Fingerprint</h2>
+          <p class="note">These browser fingerprint settings help provider sessions look like normal user browsers and can help bypass CAPTCHAs.</p>
+          <form id="browserSettingsForm">
+            <label>User Agent<input name="user_agent" value="${escapeAttribute(settings.user_agent || "")}" required></label>
+            <label class="checkbox-row"><input name="disable_webdriver" type="checkbox" ${settings.disable_webdriver ? "checked" : ""}> Disable webdriver flag</label>
+            <div class="two">
+              <label>Locale<input name="locale" value="${escapeAttribute(settings.locale || "en-US")}" required></label>
+              <label>Platform<input name="platform" value="${escapeAttribute(settings.platform || "Win32")}" required></label>
+            </div>
+            <label>Timezone
+              <select name="timezone" required>
+                ${timezoneOptions(settings.timezone || "America/New_York")}
+              </select>
+            </label>
+            <div class="error-text" id="browserSettingsError"></div>
+            <button class="primary" type="submit">Save Browser Fingerprint</button>
+          </form>
+        </section>
+      `;
+      document.querySelector("#browserSettingsForm").addEventListener("submit", saveBrowserSettings);
+    }
+
+    async function saveBrowserSettings(event) {
+      event.preventDefault();
+      const error = document.querySelector("#browserSettingsError");
+      error.textContent = "";
+      const data = Object.fromEntries(new FormData(event.currentTarget).entries());
+      const payload = {
+        ...browserSettings,
+        user_agent: data.user_agent,
+        disable_webdriver: event.currentTarget.elements.disable_webdriver.checked,
+        locale: data.locale,
+        timezone: data.timezone,
+        platform: data.platform,
+      };
+      const response = await fetch("/api/settings/browser", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        error.textContent = await response.text();
+        return;
+      }
+      browserSettings = (await response.json()).settings;
+      renderSettings(runtimeSettings);
     }
 
     async function saveSession(name) {
@@ -737,6 +840,26 @@
         '"': "&quot;",
         "'": "&#039;",
       }[char]));
+    }
+
+    function escapeAttribute(value) {
+      return escapeHtml(value);
+    }
+
+    function timezoneOptions(selected) {
+      return [
+        "America/New_York",
+        "America/Chicago",
+        "America/Denver",
+        "America/Los_Angeles",
+        "America/Phoenix",
+        "America/Anchorage",
+        "Pacific/Honolulu",
+        "UTC",
+        "Europe/London",
+        "Europe/Berlin",
+        "Asia/Tokyo",
+      ].map((zone) => `<option value="${escapeAttribute(zone)}" ${zone === selected ? "selected" : ""}>${escapeHtml(zone)}</option>`).join("");
     }
 
     loadProviders();

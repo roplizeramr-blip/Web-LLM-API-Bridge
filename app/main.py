@@ -18,7 +18,13 @@ from fastapi.staticfiles import StaticFiles
 from app.browser_engine import BrowserEngine
 from app.models import ChatCompletionRequest, ChatMessage, ProviderCreateRequest
 from app.provider_store import ProviderStore
-from app.settings import BASE_DIR, settings
+from app.settings import (
+    BASE_DIR,
+    BrowserFingerprintSettings,
+    load_browser_fingerprint_settings,
+    save_browser_fingerprint_settings,
+    settings,
+)
 
 
 store = ProviderStore()
@@ -116,6 +122,17 @@ async def delete_provider(provider_name: str) -> dict[str, Any]:
         raise HTTPException(status_code=404, detail="Unknown provider")
     store.delete(provider_name)
     return {"deleted": True}
+
+
+@app.get("/api/settings/browser")
+async def get_browser_settings() -> dict[str, Any]:
+    return {"settings": load_browser_fingerprint_settings().model_dump(mode="json")}
+
+
+@app.post("/api/settings/browser")
+async def update_browser_settings(request: BrowserFingerprintSettings) -> dict[str, Any]:
+    browser_settings = save_browser_fingerprint_settings(request)
+    return {"settings": browser_settings.model_dump(mode="json")}
 
 
 @app.get("/v1/models")
