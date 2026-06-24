@@ -1,0 +1,9 @@
+{
+  "name": "gemini",
+  "display_name": "Gemini",
+  "url": "https://gemini.google.com/app",
+  "mode": "dom",
+  "input_selector": "rich-textarea div[contenteditable='true'], textarea",
+  "send_button_selector": "button[aria-label*='Send'], button[aria-label*='Submit']",
+  "response_selector": "message-content, .model-response-text"
+}
