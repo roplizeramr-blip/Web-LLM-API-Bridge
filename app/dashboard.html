@@ -369,7 +369,7 @@
         <div class="topbar">
           <div>
             <h1>Providers</h1>
-            <div class="subtle">Login once per provider, then use the local OpenAI-compatible endpoint.</div>
+            <div class="subtle">Open a session once per provider, then use the local OpenAI-compatible endpoint.</div>
           </div>
           <div class="topbar-actions">
             <button class="ghost" id="toggleVnc" type="button" aria-expanded="false">Show Browser</button>
@@ -490,6 +490,17 @@
     });
 
     document.querySelector("#refresh").addEventListener("click", loadProviders);
+    function showVncPanel() {
+      document.querySelector('[data-view-button="providers"]').click();
+      vncPanel.classList.add("active");
+      vncPanel.setAttribute("aria-hidden", "false");
+      toggleVnc.setAttribute("aria-expanded", "true");
+      toggleVnc.textContent = "Hide Browser";
+      if (!vncFrame.src) {
+        vncFrame.src = vncUrl;
+      }
+    }
+
     toggleVnc.addEventListener("click", () => {
       const isOpen = vncPanel.classList.toggle("active");
       vncPanel.setAttribute("aria-hidden", String(!isOpen));
@@ -525,7 +536,11 @@
     });
 
     async function login(name) {
-      await fetch(`/api/providers/${encodeURIComponent(name)}/login`, {method: "POST"});
+      const response = await fetch(`/api/providers/${encodeURIComponent(name)}/login`, {method: "POST"});
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      showVncPanel();
       await loadProviders();
     }
 
@@ -569,7 +584,7 @@
             <span>Mode<br><strong>${escapeHtml(provider.mode)}</strong></span>
           </div>
           ${error}
-          <button class="primary" data-login="${escapeHtml(provider.name)}">Login</button>
+          <button class="primary" data-login="${escapeHtml(provider.name)}">Open Session</button>
           <button class="ghost" data-save="${escapeHtml(provider.name)}">Save Session</button>
         </article>
       `;
