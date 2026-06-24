@@ -18,7 +18,6 @@
       --danger: #ff6b6b;
       --ok: #59d890;
       --warn: #f3c969;
-      --bg-tertiary: #1b2636;
     }
 
     * { box-sizing: border-box; }
@@ -134,10 +133,6 @@
     .ghost {
       background: var(--panel);
       color: var(--text);
-    }
-
-    .ghost:hover {
-      background: var(--bg-tertiary);
     }
 
     .topbar-actions {
@@ -662,7 +657,7 @@
         button.addEventListener("click", () => login(button.dataset.login));
       });
       document.querySelectorAll("[data-save]").forEach((button) => {
-        button.addEventListener("click", (event) => saveSession(button.dataset.save, event));
+        button.addEventListener("click", () => saveSession(button.dataset.save));
       });
       document.querySelectorAll("[data-toggle]").forEach((input) => {
         input.addEventListener("change", () => toggleProvider(input.dataset.toggle));
@@ -672,15 +667,9 @@
       });
     }
 
-    async function saveSession(name, event) {
-      const btn = event.target;
-      const original = btn.textContent;
-      btn.textContent = "Saved!";
+    async function saveSession(name) {
       await fetch(`/api/providers/${encodeURIComponent(name)}/session`, {method: "POST"});
-      setTimeout(async () => {
-        btn.textContent = original;
-        await loadProviders();
-      }, 2000);
+      await loadProviders();
     }
 
     async function toggleProvider(name) {
