@@ -14,6 +14,7 @@ from app.settings import BROWSER_DIR, SESSIONS_DIR, ensure_data_dirs, settings
 
 
 CLOSED_BROWSER_ERROR = "Target page, context or browser has been closed"
+BROWSER_VIEWPORT = {"width": 1920, "height": 1080}
 
 
 @dataclass
@@ -123,10 +124,17 @@ class BrowserEngine:
             executable_path="/usr/bin/chromium-browser",
             user_data_dir=str(user_data_dir),
             headless=settings.headless,
-            viewport={"width": 1920, "height": 1080},
-            args=["--disable-blink-features=AutomationControlled"],
+            no_sandbox=True,
+            args=[
+                "--disable-blink-features=AutomationControlled",
+                "--start-maximized",
+                "--window-position=0,0",
+                "--window-size=1920,1080",
+            ],
         )
         page = context.pages[0] if context.pages else await context.new_page()
+        await page.set_viewport_size(BROWSER_VIEWPORT)
+        await page.evaluate("window.moveTo(0,0); window.resizeTo(1920, 1080)")
         handle = ProviderHandle(
             config=config,
             context=context,

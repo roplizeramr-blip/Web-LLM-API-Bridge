@@ -15,6 +15,8 @@ class FakePage:
         self.goto_error = goto_error
         self.goto_calls = 0
         self.bring_to_front_calls = 0
+        self.viewport_sizes: list[dict[str, int]] = []
+        self.evaluate_calls: list[str] = []
         self.url = "about:blank"
 
     def is_closed(self) -> bool:
@@ -30,6 +32,12 @@ class FakePage:
 
     async def bring_to_front(self) -> None:
         self.bring_to_front_calls += 1
+
+    async def set_viewport_size(self, size: dict[str, int]) -> None:
+        self.viewport_sizes.append(size)
+
+    async def evaluate(self, script: str) -> None:
+        self.evaluate_calls.append(script)
 
 
 class FakeContext:
@@ -56,9 +64,11 @@ class FakeChromium:
     def __init__(self, contexts: list[FakeContext]) -> None:
         self.contexts = contexts
         self.launch_calls = 0
+        self.launch_kwargs: list[dict[str, object]] = []
 
-    async def launch_persistent_context(self, **_: object) -> FakeContext:
+    async def launch_persistent_context(self, **kwargs: object) -> FakeContext:
         self.launch_calls += 1
+        self.launch_kwargs.append(kwargs)
         return self.contexts.pop(0)
 
 
@@ -110,6 +120,27 @@ class BrowserEngineTests(unittest.IsolatedAsyncioTestCase):
         self.assertIs(handle.context, new_context)
         self.assertEqual(old_context.close_calls, 1)
         self.assertIs(engine._handles[config.name], handle)
+
+    async def test_create_handle_maximizes_chromium_window(self) -> None:
+        config = provider_config()
+        context = FakeContext(FakePage())
+        engine = BrowserEngine(FakeStore(config))
+        fake_playwright = FakePlaywright([context])
+        engine._playwright = fake_playwright
+
+        await engine._create_handle(config.name)
+
+        launch_kwargs = fake_playwright.chromium.launch_kwargs[0]
+        self.assertNotIn("viewport", launch_kwargs)
+        self.assertTrue(launch_kwargs["no_sandbox"])
+        self.assertIn("--start-maximized", launch_kwargs["args"])
+        self.assertIn("--window-position=0,0", launch_kwargs["args"])
+        self.assertIn("--window-size=1920,1080", launch_kwargs["args"])
+        self.assertEqual(context.page.viewport_sizes, [{"width": 1920, "height": 1080}])
+        self.assertEqual(
+            context.page.evaluate_calls,
+            ["window.moveTo(0,0); window.resizeTo(1920, 1080)"],
+        )
 
     async def test_login_recreates_context_when_goto_reports_closed_browser(self) -> None:
         config = provider_config()
