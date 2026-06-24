@@ -1,9 +1,0 @@
-.git
-.venv
-__pycache__/
-*.py[cod]
-.pytest_cache/
-server.log
-data/browser/
-data/sessions/
-data/vnc/
