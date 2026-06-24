@@ -273,6 +273,25 @@
       background: rgba(255, 107, 107, 0.14);
     }
 
+    .card-actions {
+      display: grid;
+      gap: 8px;
+    }
+
+    .session-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .card-actions .danger {
+      justify-self: start;
+      min-height: 32px;
+      padding: 6px 10px;
+      font-size: 12px;
+      background: transparent;
+    }
+
     .meta {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -689,9 +708,13 @@
             <span>Mode<br><strong>${escapeHtml(provider.mode)}</strong></span>
           </div>
           ${error}
-          <button class="primary" data-login="${providerName}" ${enabled ? "" : "disabled"}>Open Session</button>
-          <button class="ghost" data-save="${providerName}" ${enabled ? "" : "disabled"}>Save Session</button>
-          <button class="danger" data-delete="${providerName}">Delete</button>
+          <div class="card-actions">
+            <div class="session-actions">
+              <button class="primary" data-login="${providerName}" ${enabled ? "" : "disabled"}>Open Session</button>
+              <button class="ghost" data-save="${providerName}" ${enabled ? "" : "disabled"}>Save Session</button>
+            </div>
+            <button class="danger" data-delete="${providerName}">Delete</button>
+          </div>
         </article>
       `;
     }
