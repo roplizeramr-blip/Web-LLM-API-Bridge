@@ -57,6 +57,20 @@ USER_AGENT_PRESETS: dict[str, str] = {
     ),
 }
 
+USER_AGENT_PLATFORM_MAP: dict[str, str | None] = {
+    "Custom": None,
+    "Chrome 124 Windows": "Win32",
+    "Chrome 120 macOS": "MacIntel",
+    "Firefox 123 Windows": "Win32",
+    "Edge 124 Windows": "Win32",
+    "Safari 17 macOS": "MacIntel",
+    "Chrome Mobile Android": "Linux armv8l",
+    "Firefox Mobile Android": "Linux armv8l",
+    "Chrome 124 Linux": "Linux x86_64",
+    "Opera Windows": "Win32",
+    "Brave Windows": "Win32",
+}
+
 COMMON_TIMEZONES: tuple[str, ...] = (
     "UTC",
     "America/New_York",

@@ -22,6 +22,7 @@ from app.settings import (
     BASE_DIR,
     COMMON_TIMEZONES,
     BrowserFingerprintSettings,
+    USER_AGENT_PLATFORM_MAP,
     USER_AGENT_PRESETS,
     load_browser_fingerprint_settings,
     save_browser_fingerprint_settings,
@@ -136,6 +137,7 @@ async def get_browser_settings() -> dict[str, Any]:
                 {"label": label, "value": value}
                 for label, value in USER_AGENT_PRESETS.items()
             ],
+            "user_agent_platforms": USER_AGENT_PLATFORM_MAP,
         },
     }
 

@@ -387,6 +387,7 @@
     }
 
     .settings-panel {
+      max-width: 100%;
       display: grid;
       gap: 18px;
     }
@@ -618,7 +619,7 @@
     const vncFrame = document.querySelector("#vncFrame");
     const vncUrl = `/novnc/vnc_lite.html?host=${encodeURIComponent(window.location.hostname || "127.0.0.1")}&port=6080&path=websockify&scale=true`;
     let browserSettings = null;
-    let browserOptions = {timezones: [], user_agents: []};
+    let browserOptions = {timezones: [], user_agents: [], user_agent_platforms: {}};
     let runtimeSettings = null;
 
     function switchView(viewName) {
@@ -742,7 +743,14 @@
             <label class="checkbox-row"><input name="disable_webdriver" type="checkbox" ${settings.disable_webdriver ? "checked" : ""}> Disable webdriver flag</label>
             <div class="two">
               <label>Locale<input name="locale" value="${escapeAttribute(settings.locale || "en-US")}" required></label>
-              <label>Platform<input name="platform" value="${escapeAttribute(settings.platform || "Win32")}" required></label>
+              <label>Platform
+                <select name="platform_preset" id="platformPreset" required>
+                  ${platformOptions(settings.platform || "Win32")}
+                </select>
+              </label>
+              <label id="customPlatformRow">Custom Platform
+                <input name="custom_platform" value="${escapeAttribute(settings.platform || "Win32")}" required>
+              </label>
             </div>
             <label>Timezone
               <select name="timezone" required>
@@ -756,8 +764,11 @@
       `;
       const browserSettingsForm = document.querySelector("#browserSettingsForm");
       const userAgentPreset = browserSettingsForm.elements.user_agent_preset;
-      userAgentPreset.addEventListener("change", updateCustomUserAgentVisibility);
+      const platformPreset = browserSettingsForm.elements.platform_preset;
+      userAgentPreset.addEventListener("change", handleUserAgentPresetChange);
+      platformPreset.addEventListener("change", updateCustomPlatformVisibility);
       updateCustomUserAgentVisibility({currentTarget: userAgentPreset});
+      updateCustomPlatformVisibility({currentTarget: platformPreset});
       browserSettingsForm.addEventListener("submit", saveBrowserSettings);
     }
 
@@ -770,13 +781,16 @@
       const userAgent = data.user_agent_preset === "Custom"
         ? data.custom_user_agent
         : presetOption.dataset.userAgent;
+      const platform = data.platform_preset === "Custom"
+        ? data.custom_platform
+        : data.platform_preset;
       const payload = {
         ...browserSettings,
         user_agent: userAgent,
         disable_webdriver: event.currentTarget.elements.disable_webdriver.checked,
         locale: data.locale,
         timezone: data.timezone,
-        platform: data.platform,
+        platform,
       };
       const response = await fetch("/api/settings/browser", {
         method: "POST",
@@ -888,6 +902,31 @@
       const customUserAgentRow = document.querySelector("#customUserAgentRow");
       customUserAgentRow.hidden = !isCustom;
       customUserAgentRow.querySelector("input").disabled = !isCustom;
+    }
+
+    function updateCustomPlatformVisibility(event) {
+      const isCustom = event.currentTarget.value === "Custom";
+      const customPlatformRow = document.querySelector("#customPlatformRow");
+      customPlatformRow.hidden = !isCustom;
+      customPlatformRow.querySelector("input").disabled = !isCustom;
+    }
+
+    function handleUserAgentPresetChange(event) {
+      updateCustomUserAgentVisibility(event);
+      const platform = browserOptions.user_agent_platforms[event.currentTarget.value];
+      if (!platform) return;
+
+      const platformPreset = document.querySelector("#platformPreset");
+      platformPreset.value = platform;
+      updateCustomPlatformVisibility({currentTarget: platformPreset});
+    }
+
+    function platformOptions(selected) {
+      const platforms = ["Win32", "MacIntel", "Linux armv8l", "Linux x86_64"];
+      const selectedPreset = platforms.includes(selected) ? selected : "Custom";
+      return [...platforms, "Custom"]
+        .map((platform) => `<option value="${escapeAttribute(platform)}" ${platform === selectedPreset ? "selected" : ""}>${escapeHtml(platform)}</option>`)
+        .join("");
     }
 
     function userAgentOptions(selected) {
