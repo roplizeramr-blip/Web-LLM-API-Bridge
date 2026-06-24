@@ -29,6 +29,176 @@ BROWSER_VIEWPORT = {"width": 1920, "height": 1080}
 CHROME_124_USER_AGENT = DEFAULT_USER_AGENT
 HUMAN_LIKE_HEADERS = default_extra_headers()
 WEBDRIVER_INIT_SCRIPT = "Object.defineProperty(navigator, 'webdriver', { get: () => undefined });"
+STEALTH_INIT_SCRIPT = """
+(() => {
+  const defineGetter = (target, property, getter) => {
+    try {
+      Object.defineProperty(target, property, {
+        configurable: true,
+        enumerable: true,
+        get: getter,
+      });
+    } catch (error) {
+      // Some browser properties are non-configurable in older Chromium builds.
+    }
+  };
+
+  defineGetter(Navigator.prototype, "webdriver", () => undefined);
+
+  if (!window.chrome) {
+    Object.defineProperty(window, "chrome", {
+      configurable: true,
+      enumerable: true,
+      writable: true,
+      value: {},
+    });
+  }
+
+  const chromeRuntime = {
+    PlatformOs: {
+      MAC: "mac",
+      WIN: "win",
+      ANDROID: "android",
+      CROS: "cros",
+      LINUX: "linux",
+      OPENBSD: "openbsd",
+    },
+    PlatformArch: {
+      ARM: "arm",
+      ARM64: "arm64",
+      X86_32: "x86-32",
+      X86_64: "x86-64",
+      MIPS: "mips",
+      MIPS64: "mips64",
+    },
+    PlatformNaclArch: {
+      ARM: "arm",
+      X86_32: "x86-32",
+      X86_64: "x86-64",
+      MIPS: "mips",
+      MIPS64: "mips64",
+    },
+    RequestUpdateCheckStatus: {
+      THROTTLED: "throttled",
+      NO_UPDATE: "no_update",
+      UPDATE_AVAILABLE: "update_available",
+    },
+    OnInstalledReason: {
+      INSTALL: "install",
+      UPDATE: "update",
+      CHROME_UPDATE: "chrome_update",
+      SHARED_MODULE_UPDATE: "shared_module_update",
+    },
+    OnRestartRequiredReason: {
+      APP_UPDATE: "app_update",
+      OS_UPDATE: "os_update",
+      PERIODIC: "periodic",
+    },
+  };
+  Object.defineProperty(window.chrome, "runtime", {
+    configurable: true,
+    enumerable: true,
+    writable: true,
+    value: chromeRuntime,
+  });
+  if (typeof window.chrome.csi !== "function") {
+    Object.defineProperty(window.chrome, "csi", {
+      configurable: true,
+      enumerable: true,
+      writable: true,
+      value: () => ({
+        onloadT: Date.now(),
+        startE: Date.now(),
+        pageT: Date.now() - performance.timeOrigin,
+        tran: 15,
+      }),
+    });
+  }
+  if (typeof window.chrome.loadTimes !== "function") {
+    Object.defineProperty(window.chrome, "loadTimes", {
+      configurable: true,
+      enumerable: true,
+      writable: true,
+      value: () => ({
+        requestTime: performance.timeOrigin / 1000,
+        startLoadTime: performance.timeOrigin / 1000,
+        commitLoadTime: performance.timeOrigin / 1000,
+        finishDocumentLoadTime: Date.now() / 1000,
+        finishLoadTime: Date.now() / 1000,
+        firstPaintTime: Date.now() / 1000,
+        firstPaintAfterLoadTime: 0,
+        navigationType: "Other",
+        wasFetchedViaSpdy: true,
+        wasNpnNegotiated: true,
+        npnNegotiatedProtocol: "h2",
+        wasAlternateProtocolAvailable: false,
+        connectionInfo: "h2",
+      }),
+    });
+  }
+
+  const originalQuery = window.navigator.permissions && window.navigator.permissions.query;
+  if (originalQuery) {
+    window.navigator.permissions.query = (parameters) => {
+      const name = parameters && parameters.name;
+      if (name === "notifications") {
+        return Promise.resolve({ state: Notification.permission });
+      }
+      return originalQuery.call(window.navigator.permissions, parameters);
+    };
+  }
+
+  const pluginNames = [
+    "PDF Viewer",
+    "Chrome PDF Viewer",
+    "Chromium PDF Viewer",
+    "Microsoft Edge PDF Viewer",
+    "WebKit built-in PDF",
+  ];
+  const mimeTypes = [
+    { type: "application/pdf", suffixes: "pdf", description: "Portable Document Format" },
+    { type: "text/pdf", suffixes: "pdf", description: "Portable Document Format" },
+  ];
+  const plugins = pluginNames.map((name) => ({
+    name,
+    filename: "internal-pdf-viewer",
+    description: "Portable Document Format",
+    length: mimeTypes.length,
+    0: mimeTypes[0],
+    1: mimeTypes[1],
+    item: (index) => mimeTypes[index] || null,
+    namedItem: (type) => mimeTypes.find((mimeType) => mimeType.type === type) || null,
+  }));
+  defineGetter(Navigator.prototype, "plugins", () => ({
+    length: plugins.length,
+    0: plugins[0],
+    1: plugins[1],
+    2: plugins[2],
+    3: plugins[3],
+    4: plugins[4],
+    item: (index) => plugins[index] || null,
+    namedItem: (name) => plugins.find((plugin) => plugin.name === name) || null,
+    refresh: () => undefined,
+    [Symbol.iterator]: function* () {
+      yield* plugins;
+    },
+  }));
+  defineGetter(Navigator.prototype, "mimeTypes", () => ({
+    length: mimeTypes.length,
+    0: mimeTypes[0],
+    1: mimeTypes[1],
+    item: (index) => mimeTypes[index] || null,
+    namedItem: (type) => mimeTypes.find((mimeType) => mimeType.type === type) || null,
+    [Symbol.iterator]: function* () {
+      yield* mimeTypes;
+    },
+  }));
+
+  const languages = __BROWSER_LANGUAGES__;
+  defineGetter(Navigator.prototype, "language", () => languages[0]);
+  defineGetter(Navigator.prototype, "languages", () => languages.slice());
+})();
+""".strip()
 
 
 @dataclass
@@ -156,6 +326,10 @@ class BrowserEngine:
                 "--window-size=1920,1080",
                 "--no-sandbox",
                 "--disable-blink-features=AutomationControlled",
+                "--disable-component-update",
+                "--disable-sync",
+                "--no-default-browser-check",
+                "--disable-features=ChromeWhatsNewUI",
                 f"--user-agent={browser_settings.user_agent}",
                 "--start-maximized",
                 "--window-position=0,0",
@@ -163,7 +337,7 @@ class BrowserEngine:
         )
         page = context.pages[0] if context.pages else await context.new_page()
         if init_script:
-            await page.add_init_script(init_script)
+            await context.add_init_script(init_script)
         await self._fit_browser_window(page)
         handle = ProviderHandle(
             config=config,
@@ -175,15 +349,27 @@ class BrowserEngine:
         return handle
 
     def _browser_init_script(self, browser_settings: BrowserFingerprintSettings) -> str:
-        scripts: list[str] = []
-        if browser_settings.disable_webdriver:
-            scripts.append(WEBDRIVER_INIT_SCRIPT)
+        languages = self._browser_languages(browser_settings)
+        scripts: list[str] = [
+            STEALTH_INIT_SCRIPT.replace("__BROWSER_LANGUAGES__", json.dumps(languages))
+        ]
         if browser_settings.platform:
             scripts.append(
                 "Object.defineProperty(navigator, 'platform', "
                 f"{{ get: () => {json.dumps(browser_settings.platform)} }});"
             )
         return "\n".join(scripts)
+
+    def _browser_languages(self, browser_settings: BrowserFingerprintSettings) -> list[str]:
+        accept_language = browser_settings.extra_headers.get("Accept-Language", "")
+        languages = [
+            part.split(";", 1)[0].strip()
+            for part in accept_language.split(",")
+            if part.split(";", 1)[0].strip()
+        ]
+        if browser_settings.locale and browser_settings.locale not in languages:
+            languages.insert(0, browser_settings.locale)
+        return languages or [browser_settings.locale or "en-US", "en"]
 
     async def _fit_browser_window(self, page: Page) -> None:
         await page.set_viewport_size(BROWSER_VIEWPORT)
