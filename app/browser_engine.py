@@ -124,8 +124,8 @@ class BrowserEngine:
             executable_path="/usr/bin/chromium-browser",
             user_data_dir=str(user_data_dir),
             headless=settings.headless,
-            no_sandbox=True,
             args=[
+                "--no-sandbox",
                 "--disable-blink-features=AutomationControlled",
                 "--start-maximized",
                 "--window-position=0,0",

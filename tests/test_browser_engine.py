@@ -134,7 +134,8 @@ class BrowserEngineTests(unittest.IsolatedAsyncioTestCase):
 
         launch_kwargs = fake_playwright.chromium.launch_kwargs[0]
         self.assertNotIn("viewport", launch_kwargs)
-        self.assertTrue(launch_kwargs["no_sandbox"])
+        self.assertNotIn("no_sandbox", launch_kwargs)
+        self.assertIn("--no-sandbox", launch_kwargs["args"])
         self.assertIn("--start-maximized", launch_kwargs["args"])
         self.assertIn("--window-position=0,0", launch_kwargs["args"])
         self.assertIn("--window-size=1920,1080", launch_kwargs["args"])
