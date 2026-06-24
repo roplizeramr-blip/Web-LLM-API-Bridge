@@ -732,9 +732,12 @@
           <p class="note">These browser fingerprint settings help provider sessions look like normal user browsers and can help bypass CAPTCHAs.</p>
           <form id="browserSettingsForm">
             <label>User Agent
-              <select name="user_agent" required>
+              <select name="user_agent_preset" id="userAgentPreset" required>
                 ${userAgentOptions(settings.user_agent || "")}
               </select>
+            </label>
+            <label id="customUserAgentRow">Custom User Agent
+              <input name="custom_user_agent" value="${escapeAttribute(settings.user_agent || "")}" required>
             </label>
             <label class="checkbox-row"><input name="disable_webdriver" type="checkbox" ${settings.disable_webdriver ? "checked" : ""}> Disable webdriver flag</label>
             <div class="two">
@@ -751,7 +754,11 @@
           </form>
         </section>
       `;
-      document.querySelector("#browserSettingsForm").addEventListener("submit", saveBrowserSettings);
+      const browserSettingsForm = document.querySelector("#browserSettingsForm");
+      const userAgentPreset = browserSettingsForm.elements.user_agent_preset;
+      userAgentPreset.addEventListener("change", updateCustomUserAgentVisibility);
+      updateCustomUserAgentVisibility({currentTarget: userAgentPreset});
+      browserSettingsForm.addEventListener("submit", saveBrowserSettings);
     }
 
     async function saveBrowserSettings(event) {
@@ -759,9 +766,13 @@
       const error = document.querySelector("#browserSettingsError");
       error.textContent = "";
       const data = Object.fromEntries(new FormData(event.currentTarget).entries());
+      const presetOption = event.currentTarget.elements.user_agent_preset.selectedOptions[0];
+      const userAgent = data.user_agent_preset === "Custom"
+        ? data.custom_user_agent
+        : presetOption.dataset.userAgent;
       const payload = {
         ...browserSettings,
-        user_agent: data.user_agent,
+        user_agent: userAgent,
         disable_webdriver: event.currentTarget.elements.disable_webdriver.checked,
         locale: data.locale,
         timezone: data.timezone,
@@ -865,11 +876,26 @@
         .join("");
     }
 
+    function selectedUserAgentPreset(selected) {
+      const matchingPreset = browserOptions.user_agents.find(
+        (agent) => agent.label !== "Custom" && agent.value === selected
+      );
+      return matchingPreset ? matchingPreset.label : "Custom";
+    }
+
+    function updateCustomUserAgentVisibility(event) {
+      const isCustom = event.currentTarget.value === "Custom";
+      const customUserAgentRow = document.querySelector("#customUserAgentRow");
+      customUserAgentRow.hidden = !isCustom;
+      customUserAgentRow.querySelector("input").disabled = !isCustom;
+    }
+
     function userAgentOptions(selected) {
+      const selectedPreset = selectedUserAgentPreset(selected);
       return browserOptions.user_agents
         .map((agent) => {
-          const selectedAttribute = agent.value === selected ? "selected" : "";
-          return `<option value="${escapeAttribute(agent.value)}" ${selectedAttribute}>${escapeHtml(agent.label)}</option>`;
+          const selectedAttribute = agent.label === selectedPreset ? "selected" : "";
+          return `<option value="${escapeAttribute(agent.label)}" data-user-agent="${escapeAttribute(agent.value)}" ${selectedAttribute}>${escapeHtml(agent.label)}</option>`;
         })
         .join("");
     }

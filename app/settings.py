@@ -18,6 +18,7 @@ DEFAULT_USER_AGENT = (
 )
 
 USER_AGENT_PRESETS: dict[str, str] = {
+    "Custom": DEFAULT_USER_AGENT,
     "Chrome 124 Windows": DEFAULT_USER_AGENT,
     "Chrome 120 macOS": (
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
@@ -136,13 +137,6 @@ class BrowserFingerprintSettings(BaseModel):
     platform: str = settings.platform
 
     model_config = ConfigDict(validate_assignment=True)
-
-    @field_validator("user_agent")
-    @classmethod
-    def user_agent_must_be_preset(cls, value: str) -> str:
-        if value not in USER_AGENT_PRESETS.values():
-            raise ValueError("user_agent must be one of the browser fingerprint presets")
-        return value
 
     @field_validator("timezone")
     @classmethod
