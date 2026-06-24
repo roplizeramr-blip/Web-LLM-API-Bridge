@@ -102,7 +102,7 @@ async def list_models() -> dict[str, Any]:
 
 
 @app.post("/v1/chat/completions")
-async def chat_completions(request: ChatCompletionRequest) -> JSONResponse | StreamingResponse:
+async def chat_completions(request: ChatCompletionRequest):
     model = request.model or settings.default_model
     if not store.exists(model):
         raise HTTPException(status_code=404, detail=f"Unknown model/provider: {model}")
