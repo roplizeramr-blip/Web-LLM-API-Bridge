@@ -2,6 +2,7 @@
   "name": "claude",
   "display_name": "Claude",
   "url": "https://claude.ai/new",
+  "enabled": false,
   "mode": "dom",
   "input_selector": "div[contenteditable='true'], textarea",
   "send_button_selector": "button[aria-label*='Send'], button[type='submit']",
