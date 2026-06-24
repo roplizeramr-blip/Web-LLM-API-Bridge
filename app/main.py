@@ -33,6 +33,15 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     os.environ.setdefault("DISPLAY", ":99")
     _start_vnc()
     await engine.start()
+    # Auto-restore saved sessions
+    from app.settings import SESSIONS_DIR
+    for p in store.list():
+        session_file = SESSIONS_DIR / f"{p.name}.json"
+        if session_file.exists():
+            try:
+                await engine.login(p.name)
+            except Exception:
+                pass  # session may be stale, user can re-open
     try:
         yield
     finally:
