@@ -133,6 +133,7 @@ class BrowserEngine:
             ],
         )
         page = context.pages[0] if context.pages else await context.new_page()
+        await self._maximize_window()
         await page.set_viewport_size(BROWSER_VIEWPORT)
         await page.evaluate("window.moveTo(0,0); window.resizeTo(1920, 1080)")
         handle = ProviderHandle(
@@ -143,6 +144,26 @@ class BrowserEngine:
         )
         self._handles[provider_name] = handle
         return handle
+
+    async def _maximize_window(self) -> None:
+        command = """
+            WID="$(xdotool search --sync --class chromium | head -n 1)"
+            xdotool windowsize "$WID" 1920 1080
+            xdotool windowmove "$WID" 0 0
+        """
+        try:
+            process = await asyncio.create_subprocess_shell(
+                command,
+                stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.DEVNULL,
+            )
+            try:
+                await asyncio.wait_for(process.wait(), timeout=10)
+            except asyncio.TimeoutError:
+                process.kill()
+                await process.wait()
+        except Exception:  # noqa: BLE001 - viewport resizing below remains the fallback.
+            return
 
     async def _recreate_handle(self, provider_name: str, handle: ProviderHandle) -> ProviderHandle:
         async with self._engine_lock:

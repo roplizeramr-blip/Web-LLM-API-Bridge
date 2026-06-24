@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import unittest
+from unittest.mock import AsyncMock, patch
 
 from playwright.async_api import Error
 
@@ -128,7 +129,8 @@ class BrowserEngineTests(unittest.IsolatedAsyncioTestCase):
         fake_playwright = FakePlaywright([context])
         engine._playwright = fake_playwright
 
-        await engine._create_handle(config.name)
+        with patch.object(engine, "_maximize_window", new=AsyncMock()) as maximize_window:
+            await engine._create_handle(config.name)
 
         launch_kwargs = fake_playwright.chromium.launch_kwargs[0]
         self.assertNotIn("viewport", launch_kwargs)
@@ -136,6 +138,7 @@ class BrowserEngineTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("--start-maximized", launch_kwargs["args"])
         self.assertIn("--window-position=0,0", launch_kwargs["args"])
         self.assertIn("--window-size=1920,1080", launch_kwargs["args"])
+        maximize_window.assert_awaited_once_with()
         self.assertEqual(context.page.viewport_sizes, [{"width": 1920, "height": 1080}])
         self.assertEqual(
             context.page.evaluate_calls,
