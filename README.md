@@ -18,6 +18,18 @@ source .venv/bin/activate
 uvicorn app.main:app --host 127.0.0.1 --port 9920
 ```
 
+## Docker Compose
+
+```yaml
+services:
+  llm-bridge:
+    image: ghcr.io/ai-redcode/llm-api-bridge:latest
+    ports:
+      - "9920:9920"
+      - "6080:6080"
+    restart: unless-stopped
+```
+
 Open `http://127.0.0.1:9920/`, click login for a provider, complete login in the headed Chromium window, then call:
 
 ```bash
