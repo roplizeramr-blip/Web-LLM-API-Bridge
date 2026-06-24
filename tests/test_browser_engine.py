@@ -158,6 +158,7 @@ class BrowserEngineTests(unittest.IsolatedAsyncioTestCase):
             await engine._create_handle(config.name)
 
         launch_kwargs = fake_playwright.chromium.launch_kwargs[0]
+        self.assertNotIn("executable_path", launch_kwargs)
         self.assertNotIn("viewport", launch_kwargs)
         self.assertNotIn("no_sandbox", launch_kwargs)
         self.assertEqual(launch_kwargs["user_agent"], CHROME_124_USER_AGENT)

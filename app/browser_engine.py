@@ -315,7 +315,6 @@ class BrowserEngine:
         browser_settings = load_browser_fingerprint_settings()
         init_script = self._browser_init_script(browser_settings)
         context = await self._playwright.chromium.launch_persistent_context(
-            executable_path="/usr/bin/chromium-browser",
             user_data_dir=str(user_data_dir),
             headless=settings.headless,
             user_agent=browser_settings.user_agent,
