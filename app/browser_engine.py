@@ -16,6 +16,19 @@ from app.settings import BROWSER_DIR, SESSIONS_DIR, ensure_data_dirs, settings
 
 CLOSED_BROWSER_ERROR = "Target page, context or browser has been closed"
 BROWSER_VIEWPORT = {"width": 1920, "height": 1080}
+CHROME_124_USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+)
+HUMAN_LIKE_HEADERS = {
+    "Accept-Language": "en-US,en;q=0.9",
+    "Sec-CH-UA": '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+}
+WEBDRIVER_INIT_SCRIPT = """
+Object.defineProperty(navigator, 'webdriver', {
+  get: () => undefined,
+});
+"""
 
 
 @dataclass
@@ -125,15 +138,19 @@ class BrowserEngine:
             executable_path="/usr/bin/chromium-browser",
             user_data_dir=str(user_data_dir),
             headless=settings.headless,
+            user_agent=CHROME_124_USER_AGENT,
+            extra_http_headers=HUMAN_LIKE_HEADERS,
             args=[
+                "--window-size=1920,1080",
                 "--no-sandbox",
                 "--disable-blink-features=AutomationControlled",
+                f"--user-agent={CHROME_124_USER_AGENT}",
                 "--start-maximized",
                 "--window-position=0,0",
-                "--window-size=1920,1080",
             ],
         )
         page = context.pages[0] if context.pages else await context.new_page()
+        await page.add_init_script(WEBDRIVER_INIT_SCRIPT)
         await self._fit_browser_window(page)
         handle = ProviderHandle(
             config=config,

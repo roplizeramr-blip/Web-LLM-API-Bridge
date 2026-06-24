@@ -6,7 +6,14 @@ from unittest.mock import AsyncMock, patch
 
 from playwright.async_api import Error
 
-from app.browser_engine import BrowserEngine, CLOSED_BROWSER_ERROR, ProviderHandle
+from app.browser_engine import (
+    CHROME_124_USER_AGENT,
+    HUMAN_LIKE_HEADERS,
+    WEBDRIVER_INIT_SCRIPT,
+    BrowserEngine,
+    CLOSED_BROWSER_ERROR,
+    ProviderHandle,
+)
 from app.models import ProviderConfig, ProviderStatus
 
 
@@ -18,6 +25,7 @@ class FakePage:
         self.bring_to_front_calls = 0
         self.viewport_sizes: list[dict[str, int]] = []
         self.evaluate_calls: list[str] = []
+        self.init_scripts: list[str] = []
         self.url = "about:blank"
 
     def is_closed(self) -> bool:
@@ -39,6 +47,9 @@ class FakePage:
 
     async def evaluate(self, script: str) -> None:
         self.evaluate_calls.append(script)
+
+    async def add_init_script(self, script: str) -> None:
+        self.init_scripts.append(script)
 
 
 class FakeContext:
@@ -135,11 +146,16 @@ class BrowserEngineTests(unittest.IsolatedAsyncioTestCase):
         launch_kwargs = fake_playwright.chromium.launch_kwargs[0]
         self.assertNotIn("viewport", launch_kwargs)
         self.assertNotIn("no_sandbox", launch_kwargs)
+        self.assertEqual(launch_kwargs["user_agent"], CHROME_124_USER_AGENT)
+        self.assertEqual(launch_kwargs["extra_http_headers"], HUMAN_LIKE_HEADERS)
+        self.assertEqual(launch_kwargs["args"][0], "--window-size=1920,1080")
         self.assertIn("--no-sandbox", launch_kwargs["args"])
         self.assertIn("--start-maximized", launch_kwargs["args"])
         self.assertIn("--window-position=0,0", launch_kwargs["args"])
         self.assertIn("--window-size=1920,1080", launch_kwargs["args"])
+        self.assertIn(f"--user-agent={CHROME_124_USER_AGENT}", launch_kwargs["args"])
         maximize_window.assert_awaited_once_with()
+        self.assertEqual(context.page.init_scripts, [WEBDRIVER_INIT_SCRIPT])
         self.assertEqual(context.page.viewport_sizes, [{"width": 1920, "height": 1080}])
         self.assertEqual(
             context.page.evaluate_calls,
