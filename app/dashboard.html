@@ -368,6 +368,14 @@
       document.querySelectorAll("[data-login]").forEach((button) => {
         button.addEventListener("click", () => login(button.dataset.login));
       });
+      document.querySelectorAll("[data-save]").forEach((button) => {
+        button.addEventListener("click", () => saveSession(button.dataset.save));
+      });
+    }
+
+    async function saveSession(name) {
+      await fetch(`/api/providers/${encodeURIComponent(name)}/session`, {method: "POST"});
+      await loadProviders();
     }
 
     function card(provider) {
@@ -388,6 +396,7 @@
           </div>
           ${error}
           <button class="primary" data-login="${escapeHtml(provider.name)}">Login</button>
+          <button class="ghost" data-save="${escapeHtml(provider.name)}">Save Session</button>
         </article>
       `;
     }

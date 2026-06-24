@@ -64,6 +64,17 @@ class BrowserEngine:
             handle.error = str(exc)
         return self._runtime(handle.config, handle)
 
+    async def save_session(self, provider_name: str) -> ProviderRuntime:
+        handle = await self._get_or_create(provider_name)
+        try:
+            await self._save_session(handle)
+            handle.status = ProviderStatus.connected
+            handle.error = None
+        except Exception as exc:  # noqa: BLE001 - surfaced in dashboard and API.
+            handle.status = ProviderStatus.error
+            handle.error = str(exc)
+        return self._runtime(handle.config, handle)
+
     async def complete(self, provider_name: str, prompt: str) -> str:
         chunks: list[str] = []
         async for chunk in self.stream(provider_name, prompt):

@@ -75,6 +75,14 @@ async def login_provider(provider_name: str) -> dict[str, Any]:
     return {"provider": runtime.model_dump(mode="json")}
 
 
+@app.post("/api/providers/{provider_name}/session")
+async def save_provider_session(provider_name: str) -> dict[str, Any]:
+    if not store.exists(provider_name):
+        raise HTTPException(status_code=404, detail="Unknown provider")
+    runtime = await engine.save_session(provider_name)
+    return {"provider": runtime.model_dump(mode="json")}
+
+
 @app.get("/v1/models")
 async def list_models() -> dict[str, Any]:
     providers = await engine.list_runtimes()
