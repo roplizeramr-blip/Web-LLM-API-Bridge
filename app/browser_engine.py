@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import shutil
 import time
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
@@ -133,9 +134,7 @@ class BrowserEngine:
             ],
         )
         page = context.pages[0] if context.pages else await context.new_page()
-        await self._maximize_window()
-        await page.set_viewport_size(BROWSER_VIEWPORT)
-        await page.evaluate("window.moveTo(0,0); window.resizeTo(1920, 1080)")
+        await self._fit_browser_window(page)
         handle = ProviderHandle(
             config=config,
             context=context,
@@ -145,11 +144,27 @@ class BrowserEngine:
         self._handles[provider_name] = handle
         return handle
 
-    async def _maximize_window(self) -> None:
+    async def _fit_browser_window(self, page: Page) -> None:
+        await page.set_viewport_size(BROWSER_VIEWPORT)
+        await page.evaluate("window.moveTo(0,0); window.resizeTo(1920, 1080)")
+        if not settings.headless:
+            await self._maximize_window()
+
+    async def _maximize_window(self) -> bool:
+        if shutil.which("xdotool") is None:
+            return False
         command = """
-            WID="$(xdotool search --sync --class chromium | head -n 1)"
-            xdotool windowsize "$WID" 1920 1080
-            xdotool windowmove "$WID" 0 0
+            set -eu
+            windows="$(xdotool search --sync --onlyvisible --class chromium)"
+            for wid in $windows; do
+                xdotool windowmove --sync "$wid" 0 0
+                xdotool windowsize --sync "$wid" 1920 1080
+            done
+            for wid in $windows; do
+                geometry="$(xdotool getwindowgeometry "$wid")"
+                printf '%s\n' "$geometry" | grep -q "Position: 0,0"
+                printf '%s\n' "$geometry" | grep -q "Geometry: 1920x1080"
+            done
         """
         try:
             process = await asyncio.create_subprocess_shell(
@@ -162,8 +177,10 @@ class BrowserEngine:
             except asyncio.TimeoutError:
                 process.kill()
                 await process.wait()
+                return False
+            return process.returncode == 0
         except Exception:  # noqa: BLE001 - viewport resizing below remains the fallback.
-            return
+            return False
 
     async def _recreate_handle(self, provider_name: str, handle: ProviderHandle) -> ProviderHandle:
         async with self._engine_lock:
