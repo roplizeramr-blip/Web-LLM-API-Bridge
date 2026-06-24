@@ -312,7 +312,6 @@
     .view.active { display: block; }
 
     .form-panel, .settings-panel, .help-panel {
-      max-width: 760px;
       padding: 18px;
     }
 
@@ -332,9 +331,53 @@
       letter-spacing: 0;
     }
 
+    .help-section h3 {
+      margin: 6px 0 0;
+      font-size: 14px;
+      letter-spacing: 0;
+    }
+
     .help-section p {
       margin: 0;
       color: var(--muted);
+    }
+
+    .help-section ol,
+    .help-section ul {
+      margin: 0;
+      padding-left: 20px;
+      color: var(--muted);
+    }
+
+    .help-section strong {
+      color: var(--text);
+    }
+
+    .help-section table {
+      width: 100%;
+      border-collapse: collapse;
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      overflow: hidden;
+    }
+
+    .help-section th,
+    .help-section td {
+      border-bottom: 1px solid var(--line);
+      padding: 9px 10px;
+      text-align: left;
+      color: var(--muted);
+      vertical-align: top;
+    }
+
+    .help-section th {
+      background: var(--panel-2);
+      color: var(--text);
+      font-weight: 700;
+    }
+
+    .help-section tr:last-child td {
+      border-bottom: 0;
     }
 
     .help-section code,
@@ -603,6 +646,70 @@
             <h2>Models endpoint</h2>
             <p><code>GET http://AGDEV_IP:9920/v1/models</code> returns list of connected providers.</p>
           </section>
+
+          <section class="help-section">
+            <h2>Adding a Custom Provider</h2>
+            <p>To add a new provider, you need three CSS selectors:</p>
+            <ol>
+              <li><strong>Input selector</strong> - targets the chat input field</li>
+              <li><strong>Send button selector</strong> - targets the send button</li>
+              <li><strong>Response selector</strong> - targets the assistant response text</li>
+            </ol>
+
+            <h3>How to find selectors using Chrome DevTools</h3>
+            <ol>
+              <li>Open the provider website in Chrome</li>
+              <li>Right-click the chat input field &rarr; Inspect</li>
+              <li>Look for a unique attribute like placeholder, id, or class</li>
+              <li>Right-click the send button &rarr; Inspect</li>
+              <li>Look for aria-label, type="submit", or a unique class</li>
+              <li>Right-click a response message &rarr; Inspect</li>
+              <li>Look for a container that wraps the response text</li>
+            </ol>
+
+            <h3>Example selectors</h3>
+            <table>
+              <thead>
+                <tr>
+                  <th>Element</th>
+                  <th>Example Selector</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Input</td>
+                  <td><code>textarea[placeholder="Type a message..."]</code></td>
+                </tr>
+                <tr>
+                  <td>Input</td>
+                  <td><code>div[contenteditable="true"]:not(.ql-clipboard)</code></td>
+                </tr>
+                <tr>
+                  <td>Send</td>
+                  <td><code>button[type="submit"]</code></td>
+                </tr>
+                <tr>
+                  <td>Send</td>
+                  <td><code>button[aria-label*="Send"]</code></td>
+                </tr>
+                <tr>
+                  <td>Response</td>
+                  <td><code>.message-content .text</code></td>
+                </tr>
+                <tr>
+                  <td>Response</td>
+                  <td><code>.prose p</code></td>
+                </tr>
+              </tbody>
+            </table>
+
+            <h3>Tips</h3>
+            <ul>
+              <li>Use unique attributes (placeholder, aria-label, data-testid) for better reliability</li>
+              <li>Avoid classes with random suffixes (they change on each deploy)</li>
+              <li>Test your selector in the browser console: <code>document.querySelector("your-selector")</code></li>
+            </ul>
+          </section>
         </div>
       </section>
     </main>
@@ -737,9 +844,14 @@
                 ${userAgentOptions(settings.user_agent || "")}
               </select>
             </label>
-            <label id="customUserAgentRow">Custom User Agent
-              <input name="custom_user_agent" value="${escapeAttribute(settings.user_agent || "")}" required>
-            </label>
+            <div class="two" id="customBrowserFields">
+              <label id="customUserAgentRow">Custom User Agent
+                <input name="custom_user_agent" value="${escapeAttribute(settings.user_agent || "")}" required>
+              </label>
+              <label id="customPlatformRow">Custom Platform
+                <input name="custom_platform" value="${escapeAttribute(settings.platform || "Win32")}" required>
+              </label>
+            </div>
             <label class="checkbox-row"><input name="disable_webdriver" type="checkbox" ${settings.disable_webdriver ? "checked" : ""}> Disable webdriver flag</label>
             <div class="two">
               <label>Locale<input name="locale" value="${escapeAttribute(settings.locale || "en-US")}" required></label>
@@ -747,9 +859,6 @@
                 <select name="platform_preset" id="platformPreset" required>
                   ${platformOptions(settings.platform || "Win32")}
                 </select>
-              </label>
-              <label id="customPlatformRow">Custom Platform
-                <input name="custom_platform" value="${escapeAttribute(settings.platform || "Win32")}" required>
               </label>
             </div>
             <label>Timezone
@@ -781,8 +890,8 @@
       const userAgent = data.user_agent_preset === "Custom"
         ? data.custom_user_agent
         : presetOption.dataset.userAgent;
-      const platform = data.platform_preset === "Custom"
-        ? data.custom_platform
+      const platform = data.user_agent_preset === "Custom" || data.platform_preset === "Custom"
+        ? (data.custom_platform || browserSettings.platform)
         : data.platform_preset;
       const payload = {
         ...browserSettings,
@@ -899,13 +1008,23 @@
 
     function updateCustomUserAgentVisibility(event) {
       const isCustom = event.currentTarget.value === "Custom";
+      const customBrowserFields = document.querySelector("#customBrowserFields");
       const customUserAgentRow = document.querySelector("#customUserAgentRow");
+      const customPlatformRow = document.querySelector("#customPlatformRow");
+      customBrowserFields.hidden = !isCustom;
       customUserAgentRow.hidden = !isCustom;
+      customPlatformRow.hidden = !isCustom;
       customUserAgentRow.querySelector("input").disabled = !isCustom;
+      customPlatformRow.querySelector("input").disabled = !isCustom;
+      if (isCustom) {
+        const platformPreset = document.querySelector("#platformPreset");
+        platformPreset.value = "Custom";
+      }
     }
 
     function updateCustomPlatformVisibility(event) {
-      const isCustom = event.currentTarget.value === "Custom";
+      const userAgentPreset = document.querySelector("#userAgentPreset");
+      const isCustom = userAgentPreset && userAgentPreset.value === "Custom";
       const customPlatformRow = document.querySelector("#customPlatformRow");
       customPlatformRow.hidden = !isCustom;
       customPlatformRow.querySelector("input").disabled = !isCustom;
