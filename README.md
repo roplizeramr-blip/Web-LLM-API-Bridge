@@ -27,3 +27,10 @@ curl http://127.0.0.1:9920/v1/chat/completions \
 ```
 
 Provider definitions live in `data/providers/*.json`. Login/browser state is kept under `data/sessions/` and `data/browser/`.
+
+## No Login Required (Free Providers)
+
+- Login to ChatGPT, Gemini, etc. is optional. The bridge works with providers that allow anonymous / free usage.
+- Many free public LLM web pages work without any account - just open a session and chat.
+- If you want to use providers that require an account, such as ChatGPT or Claude, you can log in once via the VNC browser and the session is saved. For quick testing or free-tier providers, no login is needed.
+- The bridge drives the browser in the background. Any web LLM chat page can be added as a provider via the "Add Provider" form.
