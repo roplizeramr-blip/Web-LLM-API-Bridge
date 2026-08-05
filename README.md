@@ -23,6 +23,8 @@ The bridge exposes familiar OpenAI-compatible endpoints, including
 `/v1/chat/completions`, so tools that already support the OpenAI API can use web
 LLM chat pages without vendor-specific integrations.
 
+> **Note:** This is mostly an experiment project. If you don't have API access for LLMs, you can use this to test your software against real web LLM chat pages for free. I hope someone finds this useful — enjoy!
+
 ## Why
 
 Most LLM tools expect an API key. Many powerful LLMs also have free or
