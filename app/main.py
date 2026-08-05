@@ -59,7 +59,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         await engine.stop()
 
 
-app = FastAPI(title="LLM API Bridge", version="1.0.0", lifespan=lifespan)
+app = FastAPI(title="Web LLM API Bridge", version="1.0.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -158,7 +158,7 @@ async def list_models() -> dict[str, Any]:
                 "id": provider.name,
                 "object": "model",
                 "created": 0,
-                "owned_by": "LLM-Bridge",
+                "owned_by": "Web-LLM-Bridge",
                 "status": provider.status,
             }
             for provider in providers
