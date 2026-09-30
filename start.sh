@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+٨#!/usr/bin/env bash
 set -euo pipefail
 
 cd /app
@@ -123,6 +123,17 @@ echo "Starting nginx on public port ${PUBLIC_PORT}..."
 nginx -c /tmp/nginx.conf -g 'daemon off;' &
 
 NGINX_PID=$!
+
+sleep 2
+echo "========== NGINX CHECK =========="
+if kill -0 "$NGINX_PID" 2>/dev/null; then
+    echo "NGINX IS RUNNING PID=$NGINX_PID"
+else
+    echo "NGINX FAILED"
+    cat /tmp/nginx.conf || true
+    exit 1
+fi
+echo "================================="
 
 term_handler() {
     echo "Stopping services..."
