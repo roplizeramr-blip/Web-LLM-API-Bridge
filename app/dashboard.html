@@ -896,7 +896,7 @@
     const chatStatus = document.querySelector("#chatStatus");
     const clearChat = document.querySelector("#clearChat");
     const settingsToast = document.querySelector("#settingsToast");
-    const vncUrl = `/novnc/vnc_lite.html?host=${encodeURIComponent(window.location.hostname || "127.0.0.1")}&port=6080&path=websockify&scale=true`;
+    const vncUrl = `/novnc/vnc_lite.html?host=${encodeURIComponent(window.location.hostname || "127.0.0.1")}&port=${encodeURIComponent(window.location.port || (window.location.protocol === "https:" ? "443" : "80"))}&path=websockify&scale=true`;
     let browserSettings = null;
     let browserOptions = {timezones: [], user_agents: [], user_agent_platforms: {}};
     let runtimeSettings = null;
