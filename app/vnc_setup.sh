@@ -27,7 +27,7 @@ if ! is_running "Xvfb ${DISPLAY_ID}"; then
   echo "$!" >"${LOG_DIR}/xvfb.pid"
 fi
 
-for _ in $(seq 1 50); do
+for _ in $(seq 1 100); do
   if [ -S "/tmp/.X11-unix/X${display_number}" ]; then
     break
   fi
@@ -40,13 +40,19 @@ if [ ! -S "/tmp/.X11-unix/X${display_number}" ]; then
 fi
 
 if ! is_running "x11vnc .*${DISPLAY_ID}.*-rfbport ${VNC_PORT}"; then
-  setsid nohup x11vnc -display "${DISPLAY_ID}" -rfbport "${VNC_PORT}" -forever -shared -nopw \
-    -xkb -noxdamage -repeat -listen 0.0.0.0 \
+  setsid nohup x11vnc \
+    -display "${DISPLAY_ID}" \
+    -rfbport "${VNC_PORT}" \
+    -forever -shared -nopw \
+    -xkb -noxdamage -repeat -listen 127.0.0.1 \
     >"${LOG_DIR}/x11vnc.log" 2>&1 &
   echo "$!" >"${LOG_DIR}/x11vnc.pid"
 fi
 
 if ! is_running "websockify .*${NOVNC_PORT} .*localhost:${VNC_PORT}"; then
-  websockify -D --web "${NOVNC_DIR}" --log-file "${LOG_DIR}/websockify.log" \
-    "0.0.0.0:${NOVNC_PORT}" "localhost:${VNC_PORT}"
+  websockify -D \
+    --web "${NOVNC_DIR}" \
+    --log-file "${LOG_DIR}/websockify.log" \
+    "127.0.0.1:${NOVNC_PORT}" \
+    "localhost:${VNC_PORT}"
 fi
