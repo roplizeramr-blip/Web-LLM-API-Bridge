@@ -1,0 +1,5 @@
+في app/dashboard.html استبدل سطر:
+const vncUrl = `/novnc/vnc_lite.html?host=${encodeURIComponent(window.location.hostname || "127.0.0.1")}&port=6080&path=websockify&scale=true`;
+
+بالسطر:
+const vncUrl = `/novnc/vnc_lite.html?host=${encodeURIComponent(window.location.hostname || "127.0.0.1")}&port=${encodeURIComponent(window.location.port || (window.location.protocol === "https:" ? "443" : "80"))}&path=websockify&scale=true`;
