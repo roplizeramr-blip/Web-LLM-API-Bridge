@@ -1,21 +1,18 @@
-٨#!/usr/bin/env bash
+#!/usr/bin/env bash
 set -euo pipefail
 
 cd /app
 
 export DISPLAY="${DISPLAY:-:99}"
 
-# FastAPI stays internal.
 export LLM_BRIDGE_HOST="127.0.0.1"
 export LLM_BRIDGE_INTERNAL_PORT="${LLM_BRIDGE_INTERNAL_PORT:-9000}"
 export LLM_BRIDGE_PORT="${LLM_BRIDGE_INTERNAL_PORT}"
 
-# VNC stack.
 export LLM_BRIDGE_VNC_DISPLAY="${LLM_BRIDGE_VNC_DISPLAY:-:99}"
 export LLM_BRIDGE_VNC_PORT="${LLM_BRIDGE_VNC_PORT:-5900}"
 export LLM_BRIDGE_NOVNC_PORT="${LLM_BRIDGE_NOVNC_PORT:-6080}"
 
-# Railway provides the public port dynamically.
 PUBLIC_PORT="${PORT:-8000}"
 
 cat > /tmp/nginx.conf <<EOF
@@ -31,7 +28,6 @@ http {
     default_type application/octet-stream;
 
     sendfile on;
-    keepalive_timeout 65;
 
     map \$http_upgrade \$connection_upgrade {
         default upgrade;
@@ -44,29 +40,23 @@ http {
 
         client_max_body_size 25m;
 
-        # noVNC WebSocket -> websockify
         location /websockify {
             proxy_pass http://127.0.0.1:${LLM_BRIDGE_NOVNC_PORT};
             proxy_http_version 1.1;
-
             proxy_set_header Upgrade \$http_upgrade;
             proxy_set_header Connection \$connection_upgrade;
             proxy_set_header Host \$host;
-
             proxy_read_timeout 3600s;
             proxy_send_timeout 3600s;
         }
 
-        # Dashboard + API -> FastAPI
         location / {
             proxy_pass http://127.0.0.1:${LLM_BRIDGE_INTERNAL_PORT};
             proxy_http_version 1.1;
-
             proxy_set_header Host \$host;
             proxy_set_header X-Real-IP \$remote_addr;
             proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
             proxy_set_header X-Forwarded-Proto \$scheme;
-
             proxy_read_timeout 3600s;
             proxy_send_timeout 3600s;
         }
@@ -88,7 +78,6 @@ echo "Waiting for FastAPI startup..."
 READY=0
 
 for _ in $(seq 1 180); do
-
     if curl -fsS \
         "http://127.0.0.1:${LLM_BRIDGE_INTERNAL_PORT}/" \
         >/dev/null 2>&1; then
@@ -120,20 +109,23 @@ echo "FastAPI is ready."
 
 echo "Starting nginx on public port ${PUBLIC_PORT}..."
 
-nginx -c /tmp/nginx.conf -g 'daemon off;' &
+nginx -t -c /tmp/nginx.conf
 
+nginx -c /tmp/nginx.conf -g 'daemon off;' &
 NGINX_PID=$!
 
 sleep 2
-echo "========== NGINX CHECK =========="
-if kill -0 "$NGINX_PID" 2>/dev/null; then
-    echo "NGINX IS RUNNING PID=$NGINX_PID"
-else
-    echo "NGINX FAILED"
-    cat /tmp/nginx.conf || true
+
+if ! kill -0 "$NGINX_PID" 2>/dev/null; then
+    echo "NGINX FAILED TO START"
     exit 1
 fi
-echo "================================="
+
+echo "NGINX IS RUNNING PID=${NGINX_PID}"
+echo "Public port: ${PUBLIC_PORT}"
+echo "FastAPI: ${LLM_BRIDGE_INTERNAL_PORT}"
+echo "Websockify: ${LLM_BRIDGE_NOVNC_PORT}"
+echo "x11vnc: ${LLM_BRIDGE_VNC_PORT}"
 
 term_handler() {
     echo "Stopping services..."
@@ -148,7 +140,6 @@ term_handler() {
 trap term_handler SIGTERM SIGINT
 
 wait "$APP_PID"
-
 STATUS=$?
 
 kill "$NGINX_PID" 2>/dev/null || true
