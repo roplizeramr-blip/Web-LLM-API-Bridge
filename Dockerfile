@@ -1,6 +1,8 @@
 FROM mcr.microsoft.com/playwright/python:v1.49.1-jammy
 
-ENV PYTHONUNBUFFERED=1 \
+ENV DEBIAN_FRONTEND=noninteractive \
+    TZ=UTC \
+    PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     DISPLAY=:99 \
     LLM_BRIDGE_HOST=127.0.0.1 \
@@ -22,6 +24,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     fonts-liberation \
     fonts-noto-color-emoji \
+    tzdata \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
